@@ -1,16 +1,9 @@
-import {
-  IconTrendingDown,
-  IconTrendingUp,
-  IconLoader2,
-  IconPlus,
-} from '@tabler/icons-react'
+import { IconPlus } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
-  CardAction,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -21,6 +14,7 @@ import { useInvestments } from '@/hooks/use-investments'
 import { useCurrentUser } from '@/stores/user-store'
 import { AddInvestmentModal } from './add-investment-modal'
 import type { InvestmentWithDetails } from '@/lib/types/investments'
+import { Badge } from '../ui/badge'
 
 interface InvestmentCardsProps {
   onCreateInvestment?: () => void
@@ -79,7 +73,7 @@ export function InvestmentCards({ onCreateInvestment }: InvestmentCardsProps) {
 
   const portfolioTotal =
     investments?.reduce((total, investment) => {
-      const initialAmount = Number(investment.initial_amount) || 0
+      const initialAmount = Number(investment.amount) || 0
       const distributions = Number(investment.total_distributions) || 0
       return total + initialAmount + distributions
     }, 0) || 0
@@ -126,11 +120,6 @@ function InvestmentCard({ investment }: { investment: InvestmentWithDetails }) {
     }
   }
 
-  const daysSinceStart = Math.floor(
-    (new Date().getTime() - new Date(investment.date_started).getTime()) /
-      (1000 * 60 * 60 * 24),
-  )
-
   return (
     <Link
       to="/investments/$investmentId"
@@ -139,36 +128,32 @@ function InvestmentCard({ investment }: { investment: InvestmentWithDetails }) {
     >
       <Card className="@container/card hover:shadow-md transition-shadow cursor-pointer flex flex-col w-full">
         <CardHeader>
-          <CardDescription>
-            {getInvestmentTypeLabel(investment.investment_type)}
-          </CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl truncate">
+          <CardTitle className="text-lg font-semibold tabular-nums truncate">
             {investment.name}
           </CardTitle>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm mt-auto">
           <div className="flex justify-between items-center w-full">
-            <span className="text-muted-foreground">Initial:</span>
+            <span className="text-muted-foreground">Amount:</span>
             <span className="font-medium tabular-nums">
-              {formatCurrency(investment.initial_amount)}
+              {formatCurrency(investment.amount)}
             </span>
           </div>
-          <div className="flex justify-between items-center w-full">
-            <span className="text-muted-foreground">Total Distributions:</span>
-            <span className="font-medium tabular-nums text-green-600 dark:text-green-400">
-              {formatCurrency(investment.total_distributions)}
-            </span>
-          </div>
-          <div className="pt-2 text-xs text-muted-foreground">
-            {investment.total_distributions > 0
-              ? `${formatCurrency(investment.total_distributions)} in distributions`
-              : `${daysSinceStart} days since start`}
-          </div>
-          {investment.description && (
-            <div className="pt-1 text-xs text-muted-foreground line-clamp-2">
-              {investment.description}
+          {investment.total_distributions > 0 ? (
+            <div className="flex justify-between items-center w-full">
+              <span className="text-muted-foreground">
+                Total Distributions:
+              </span>
+              <span className="font-medium tabular-nums text-green-600 dark:text-green-400">
+                {formatCurrency(investment.total_distributions)}
+              </span>
             </div>
-          )}
+          ) : null}
+          <div className="pt-1 text-xs text-muted-foreground line-clamp-2">
+            <Badge variant="secondary">
+              {getInvestmentTypeLabel(investment.investment_type)}
+            </Badge>
+          </div>
         </CardFooter>
       </Card>
     </Link>

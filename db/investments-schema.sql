@@ -28,6 +28,15 @@ CREATE TABLE IF NOT EXISTS tags (
     UNIQUE(user_id, name)
 );
 
+-- Investment types table (user-specific)
+CREATE TABLE IF NOT EXISTS investment_types (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, name)
+);
+
 -- Investment types are now stored as VARCHAR to allow custom types
 
 -- Investments table
@@ -36,8 +45,8 @@ CREATE TABLE IF NOT EXISTS investments (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    date_started DATE NOT NULL,
-    initial_amount DECIMAL(12, 2) NOT NULL CHECK (initial_amount >= 0),
+    date_started DATE,
+    amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
     investment_type VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -72,6 +81,7 @@ CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
 CREATE INDEX IF NOT EXISTS idx_distributions_investment_id ON distributions(investment_id);
 CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
 CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id);
+CREATE INDEX IF NOT EXISTS idx_investment_types_user_id ON investment_types(user_id);
 CREATE INDEX IF NOT EXISTS idx_distributions_date ON distributions(date);
 
 -- Function to update updated_at timestamp

@@ -26,6 +26,7 @@ import {
   useCategories,
   useTags,
   useUpdateInvestment,
+  useInvestmentTypes,
 } from '@/hooks/use-investments'
 import type {
   UpdateInvestmentData,
@@ -45,18 +46,17 @@ const investmentSchema = z.object({
     .or(z.literal('')),
   date_started: z
     .string()
-    .min(1, 'Start date is required')
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please enter a valid date'),
-  initial_amount: z
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please enter a valid date')
+    .optional()
+    .nullable(),
+  amount: z
     .number({
       required_error: 'Initial amount is required',
       invalid_type_error: 'Initial amount must be a number',
     })
     .min(0.01, 'Initial amount must be greater than 0')
     .max(999999999.99, 'Initial amount is too large'),
-  investment_type: z.enum(['stocks', 'real_estate', 'other'], {
-    required_error: 'Please select an investment type',
-  }),
+  investment_type: z.string(),
   category_ids: z.array(z.number()).optional(),
   tag_ids: z.array(z.number()).optional(),
 })
@@ -78,6 +78,7 @@ export function EditInvestmentForm({
 }: EditInvestmentFormProps) {
   const { data: categories = [] } = useCategories(userId)
   const { data: tags = [] } = useTags(userId)
+  const { data: customInvestmentTypes = [] } = useInvestmentTypes(userId)
   const updateInvestmentMutation = useUpdateInvestment()
 
   const form = useForm<InvestmentFormData>({
@@ -89,10 +90,10 @@ export function EditInvestmentForm({
         investment.date_started instanceof Date
           ? investment.date_started.toISOString().split('T')[0]
           : investment.date_started,
-      initial_amount:
-        typeof investment.initial_amount === 'string'
-          ? parseFloat(investment.initial_amount)
-          : investment.initial_amount,
+      amount:
+        typeof investment.amount === 'string'
+          ? parseFloat(investment.amount)
+          : investment.amount,
       investment_type: investment.investment_type,
       category_ids: investment.categories?.map((c) => c.id) || [],
       tag_ids: investment.tags?.map((t) => t.id) || [],
@@ -106,7 +107,7 @@ export function EditInvestmentForm({
         name: data.name,
         description: data.description || '',
         date_started: data.date_started,
-        initial_amount: data.initial_amount,
+        amount: data.amount,
         investment_type: data.investment_type,
         category_ids: data.category_ids?.length ? data.category_ids : undefined,
         tag_ids: data.tag_ids?.length ? data.tag_ids : undefined,
@@ -124,13 +125,21 @@ export function EditInvestmentForm({
     }
   }
 
-  const investmentTypeOptions = [
+  const defaultInvestmentTypes = [
     { value: 'stocks', label: 'Stocks' },
     { value: 'real_estate', label: 'Real Estate' },
     { value: 'oil', label: 'Oil & Gas' },
     { value: 'solar', label: 'Solar' },
     { value: 'other', label: 'Other' },
-  ] as const
+  ]
+
+  const investmentTypeOptions = [
+    ...defaultInvestmentTypes,
+    ...customInvestmentTypes.map((type) => ({
+      value: type.name.toLowerCase().replace(/\s+/g, '_'),
+      label: type.name,
+    })),
+  ]
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -201,7 +210,7 @@ export function EditInvestmentForm({
         />
 
         <Controller
-          name="initial_amount"
+          name="amount"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>

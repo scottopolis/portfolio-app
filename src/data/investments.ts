@@ -5,11 +5,13 @@ import type {
   Distribution,
   Category,
   Tag,
+  InvestmentType,
   InvestmentWithDetails,
   CreateInvestmentData,
   CreateDistributionData,
   CreateCategoryData,
   CreateTagData,
+  CreateInvestmentTypeData,
   UpdateInvestmentData,
 } from '@/lib/types/investments'
 
@@ -74,13 +76,23 @@ const initializeSchema = createServerFn({
     `)
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS investment_types (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name VARCHAR(100) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, name)
+      )
+    `)
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS investments (
           id SERIAL PRIMARY KEY,
           user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           name VARCHAR(255) NOT NULL,
           description TEXT,
-          date_started DATE NOT NULL,
-          initial_amount DECIMAL(12, 2) NOT NULL CHECK (initial_amount >= 0),
+          date_started DATE,
+          amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
           investment_type VARCHAR(100) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -163,7 +175,7 @@ export const getInvestments = createServerFn({
       SELECT
         i.*,
         COALESCE(SUM(d.amount), 0) as total_distributions,
-        COALESCE(SUM(d.amount), 0) - i.initial_amount as current_return
+        COALESCE(SUM(d.amount), 0) - i.amount as current_return
       FROM investments i
       LEFT JOIN distributions d ON i.id = d.investment_id
       WHERE i.user_id = $1
@@ -193,7 +205,7 @@ export const getInvestmentWithDetails = createServerFn({
       SELECT
         i.*,
         COALESCE(SUM(d.amount), 0) as total_distributions,
-        COALESCE(SUM(d.amount), 0) - i.initial_amount as current_return
+        COALESCE(SUM(d.amount), 0) - i.amount as current_return
       FROM investments i
       LEFT JOIN distributions d ON i.id = d.investment_id
       WHERE i.user_id = $1 AND i.id = $2
@@ -260,7 +272,7 @@ export const createInvestment = createServerFn({
     // Insert investment
     const result = await client.query(
       `
-      INSERT INTO investments (user_id, name, description, date_started, initial_amount, investment_type)
+      INSERT INTO investments (user_id, name, description, date_started, amount, investment_type)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `,
@@ -269,7 +281,7 @@ export const createInvestment = createServerFn({
         data.name,
         data.description,
         data.date_started,
-        data.initial_amount,
+        data.amount,
         data.investment_type,
       ],
     )
@@ -432,6 +444,52 @@ export const createTag = createServerFn({
     return result[0] as Tag
   })
 
+// Get investment types for user
+export const getInvestmentTypes = createServerFn({
+  method: 'GET',
+})
+  .inputValidator((userId: number) => userId)
+  .handler(async ({ data: userId }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    await initializeSchema()
+
+    const result = await client.query(
+      `
+      SELECT * FROM investment_types WHERE user_id = $1 ORDER BY name
+    `,
+      [userId],
+    )
+
+    return result as InvestmentType[]
+  })
+
+// Create investment type
+export const createInvestmentType = createServerFn({
+  method: 'POST',
+})
+  .inputValidator((data: { userId: number } & CreateInvestmentTypeData) => data)
+  .handler(async ({ data }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    const result = await client.query(
+      `
+      INSERT INTO investment_types (user_id, name)
+      VALUES ($1, $2)
+      RETURNING *
+    `,
+      [data.userId, data.name],
+    )
+
+    return result[0] as InvestmentType
+  })
+
 // Create user
 export const createUser = createServerFn({
   method: 'POST',
@@ -508,7 +566,7 @@ export const updateInvestment = createServerFn({
       // Update investment
       const result = await client.query(
         `UPDATE investments
-         SET name = $3, description = $4, date_started = $5, initial_amount = $6,
+         SET name = $3, description = $4, date_started = $5, amount = $6,
              investment_type = $7, updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $1 AND id = $2
          RETURNING *`,
@@ -518,7 +576,7 @@ export const updateInvestment = createServerFn({
           investmentData.name,
           investmentData.description,
           investmentData.date_started,
-          investmentData.initial_amount,
+          investmentData.amount,
           investmentData.investment_type,
         ],
       )

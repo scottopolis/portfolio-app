@@ -29,13 +29,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   useCurrentUser,
-  useMockUsers,
   useSetCurrentUser,
-  useInitializeMockUsers,
-  useCreateNewUser
-  
 } from '@/stores/user-store'
-import type {MockUser} from '@/stores/user-store';
+import type { User } from '@/stores/user-store'
+import { useUsers, useCreateUser } from '@/hooks/use-users'
 
 interface UserSelectorProps {
   className?: string
@@ -47,43 +44,34 @@ export function UserSelector({
   compact = false,
 }: UserSelectorProps) {
   const currentUser = useCurrentUser()
-  const mockUsers = useMockUsers()
+  const { data: users = [], isLoading } = useUsers()
   const setCurrentUser = useSetCurrentUser()
-  const initializeMockUsers = useInitializeMockUsers()
-  const createNewUser = useCreateNewUser()
+  const createUserMutation = useCreateUser()
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newUserName, setNewUserName] = useState('')
   const [newUserEmail, setNewUserEmail] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
-
-  useEffect(() => {
-    initializeMockUsers()
-  }, [initializeMockUsers])
 
   const handleUserChange = (userId: string) => {
-    const user = mockUsers.find((u) => u.id.toString() === userId)
-    setCurrentUser(user || null)
+    const user = users.find((u) => u.id.toString() === userId)
+    setCurrentUser(user ? { id: user.id, name: user.name, email: user.email } : null)
   }
 
   const handleCreateUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim()) return
 
-    setIsCreating(true)
     try {
-      const newUser = await createNewUser(
-        newUserName.trim(),
-        newUserEmail.trim(),
-      )
-      setCurrentUser(newUser)
+      const newUser = await createUserMutation.mutateAsync({
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+      })
+      setCurrentUser({ id: newUser.id, name: newUser.name, email: newUser.email })
       setIsCreateDialogOpen(false)
       setNewUserName('')
       setNewUserEmail('')
     } catch (error) {
       console.error('Failed to create user:', error)
       // You could add toast notification here
-    } finally {
-      setIsCreating(false)
     }
   }
 
@@ -97,23 +85,33 @@ export function UserSelector({
           >
             <SelectTrigger className="w-full">
               <div className="flex items-center gap-2">
-                <SelectValue placeholder="Select user" />
+                <SelectValue 
+                  placeholder={
+                    isLoading 
+                      ? "Loading users..." 
+                      : `Select user (${users.length} available)`
+                  } 
+                />
               </div>
             </SelectTrigger>
             <SelectContent>
-              {mockUsers.map((user) => (
-                <SelectItem key={user.id} value={user.id.toString()}>
-                  <div className="flex items-center gap-2">
-                    <IconUser className="size-4" />
-                    <div>
-                      <div className="font-medium">{user.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {user.email}
+              {users.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">No users found</div>
+              ) : (
+                users.map((user) => (
+                  <SelectItem key={user.id} value={user.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <IconUser className="size-4" />
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {user.email}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </SelectItem>
-              ))}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
@@ -131,8 +129,7 @@ export function UserSelector({
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Add a new user to the system. This is for development purposes
-                  only.
+                  Add a new user to the system.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -143,7 +140,7 @@ export function UserSelector({
                     placeholder="Enter user's full name"
                     value={newUserName}
                     onChange={(e) => setNewUserName(e.target.value)}
-                    disabled={isCreating}
+                    disabled={createUserMutation.isPending}
                   />
                 </div>
                 <div className="space-y-2">
@@ -154,7 +151,7 @@ export function UserSelector({
                     placeholder="Enter user's email"
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
-                    disabled={isCreating}
+                    disabled={createUserMutation.isPending}
                   />
                 </div>
               </div>
@@ -162,17 +159,17 @@ export function UserSelector({
                 <Button
                   variant="outline"
                   onClick={() => setIsCreateDialogOpen(false)}
-                  disabled={isCreating}
+                  disabled={createUserMutation.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleCreateUser}
                   disabled={
-                    !newUserName.trim() || !newUserEmail.trim() || isCreating
+                    !newUserName.trim() || !newUserEmail.trim() || createUserMutation.isPending
                   }
                 >
-                  {isCreating ? 'Creating...' : 'Create User'}
+                  {createUserMutation.isPending ? 'Creating...' : 'Create User'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -190,8 +187,7 @@ export function UserSelector({
           User Selection
         </CardTitle>
         <CardDescription>
-          Choose a user to view their investments. This is temporary until we
-          add authentication.
+          Choose a user to view their investments.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -236,8 +232,7 @@ export function UserSelector({
                 <DialogHeader>
                   <DialogTitle>Create New User</DialogTitle>
                   <DialogDescription>
-                    Add a new user to the system. This is for development
-                    purposes only.
+                  Add a new user to the system.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -248,7 +243,7 @@ export function UserSelector({
                       placeholder="Enter user's full name"
                       value={newUserName}
                       onChange={(e) => setNewUserName(e.target.value)}
-                      disabled={isCreating}
+                      disabled={createUserMutation.isPending}
                     />
                   </div>
                   <div className="space-y-2">
@@ -259,7 +254,7 @@ export function UserSelector({
                       placeholder="Enter user's email"
                       value={newUserEmail}
                       onChange={(e) => setNewUserEmail(e.target.value)}
-                      disabled={isCreating}
+                      disabled={createUserMutation.isPending}
                     />
                   </div>
                 </div>
@@ -267,17 +262,17 @@ export function UserSelector({
                   <Button
                     variant="outline"
                     onClick={() => setIsCreateDialogOpen(false)}
-                    disabled={isCreating}
+                    disabled={createUserMutation.isPending}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleCreateUser}
                     disabled={
-                      !newUserName.trim() || !newUserEmail.trim() || isCreating
+                      !newUserName.trim() || !newUserEmail.trim() || createUserMutation.isPending
                     }
                   >
-                    {isCreating ? 'Creating...' : 'Create User'}
+                    {createUserMutation.isPending ? 'Creating...' : 'Create User'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -291,7 +286,7 @@ export function UserSelector({
               <SelectValue placeholder="Select a user" />
             </SelectTrigger>
             <SelectContent>
-              {mockUsers.map((user) => (
+              {users.map((user) => (
                 <SelectItem key={user.id} value={user.id.toString()}>
                   <div className="flex items-center gap-2">
                     <IconUser className="size-4" />
@@ -309,8 +304,7 @@ export function UserSelector({
         </div>
 
         <div className="pt-2 text-xs text-muted-foreground">
-          💡 Mock users are provided for development. In production, this would
-          be replaced with proper authentication and user management.
+          💡 For development purposes. In production, this would be replaced with proper authentication and user management.
         </div>
       </CardContent>
     </Card>
@@ -320,11 +314,6 @@ export function UserSelector({
 // Simple header component showing current user
 export function UserBadge({ className }: { className?: string }) {
   const currentUser = useCurrentUser()
-  const initializeMockUsers = useInitializeMockUsers()
-
-  useEffect(() => {
-    initializeMockUsers()
-  }, [initializeMockUsers])
 
   if (!currentUser) {
     return (

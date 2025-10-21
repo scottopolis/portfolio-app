@@ -11,8 +11,8 @@ export interface Investment {
   user_id: number
   name: string
   description: string
-  date_started: string
-  initial_amount: number
+  date_started?: string
+  amount: number
   investment_type: string
   created_at: string
   updated_at: string
@@ -39,6 +39,13 @@ export interface Tag {
   name: string
 }
 
+export interface InvestmentType {
+  id: number
+  user_id: number
+  name: string
+  created_at: string
+}
+
 export interface InvestmentWithDetails extends Investment {
   categories: Category[]
   tags: Tag[]
@@ -50,8 +57,8 @@ export interface InvestmentWithDetails extends Investment {
 export interface CreateInvestmentData {
   name: string
   description: string
-  date_started: string
-  initial_amount: number
+  date_started?: string
+  amount: number
   investment_type: string
   category_ids?: number[]
   tag_ids?: number[]
@@ -72,11 +79,15 @@ export interface CreateTagData {
   name: string
 }
 
+export interface CreateInvestmentTypeData {
+  name: string
+}
+
 export interface UpdateInvestmentData {
   name: string
   description: string
-  date_started: string
-  initial_amount: number
+  date_started?: string
+  amount: number
   investment_type: string
   category_ids?: number[]
   tag_ids?: number[]

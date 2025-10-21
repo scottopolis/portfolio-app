@@ -9,6 +9,8 @@ import {
   createCategory,
   getTags,
   createTag,
+  getInvestmentTypes,
+  createInvestmentType,
 } from '@/data/investments'
 import { useCurrentUser } from '@/stores/user-store'
 import type {
@@ -17,6 +19,7 @@ import type {
   CreateDistributionData,
   CreateCategoryData,
   CreateTagData,
+  CreateInvestmentTypeData,
 } from '@/lib/types/investments'
 
 // Query keys
@@ -37,6 +40,11 @@ export const categoryKeys = {
 export const tagKeys = {
   all: ['tags'] as const,
   list: (userId: number) => [...tagKeys.all, userId] as const,
+}
+
+export const investmentTypeKeys = {
+  all: ['investment-types'] as const,
+  list: (userId: number) => [...investmentTypeKeys.all, userId] as const,
 }
 
 // Query options for use with ensureQueryData
@@ -64,6 +72,12 @@ export const categoriesQueryOptions = (userId: number) => ({
 export const tagsQueryOptions = (userId: number) => ({
   queryKey: tagKeys.list(userId),
   queryFn: () => getTags({ data: userId }),
+  enabled: !!userId,
+})
+
+export const investmentTypesQueryOptions = (userId: number) => ({
+  queryKey: investmentTypeKeys.list(userId),
+  queryFn: () => getInvestmentTypes({ data: userId }),
   enabled: !!userId,
 })
 
@@ -198,6 +212,29 @@ export function useCreateTag() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: tagKeys.list(variables.userId),
+      })
+    },
+  })
+}
+
+// Investment type hooks
+export function useInvestmentTypes(userId: number) {
+  return useQuery({
+    queryKey: investmentTypeKeys.list(userId),
+    queryFn: () => getInvestmentTypes({ data: userId }),
+    enabled: !!userId,
+  })
+}
+
+export function useCreateInvestmentType() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: { userId: number } & CreateInvestmentTypeData) =>
+      createInvestmentType({ data }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: investmentTypeKeys.list(variables.userId),
       })
     },
   })

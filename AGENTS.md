@@ -47,17 +47,22 @@ A personal finance application for tracking investments built with modern React 
 
 ```
 users (id, email, password_hash, name, timestamps)
-├── investments (id, user_id, name, description, date_started, initial_amount, investment_type, timestamps)
+├── investments (id, user_id, name, description, date_started, amount, investment_type, timestamps)
 │   ├── distributions (id, investment_id, date, amount, description, created_at)
 │   ├── investment_categories (investment_id, category_id) [junction table]
 │   └── investment_tags (investment_id, tag_id) [junction table]
 ├── categories (id, user_id, name, created_at)
-└── tags (id, user_id, name, created_at)
+├── tags (id, user_id, name, created_at)
+└── investment_types (id, user_id, name, created_at) [user-specific custom investment types]
 ```
 
 ### Investment Types
 
-- VARCHAR(100): Allows any custom investment type string (e.g., 'stocks', 'real_estate', 'cryptocurrency', etc.)
+- **Storage**: VARCHAR(100) in investments table allows any custom investment type string
+- **Custom Types**: User-specific custom investment types are stored in `investment_types` table
+- **Persistence**: Custom investment types persist across sessions and are scoped per user
+- **Default Types**: Built-in types include 'stocks', 'real_estate', 'oil', 'solar', 'other'
+- **Creation**: Users can create custom types via the investment form's "+" button
 
 ## Investment Calculation Logic
 
@@ -69,8 +74,8 @@ users (id, email, password_hash, name, timestamps)
 
 ### Key Calculations
 
-- **Total Portfolio Value**: `initial_amount + total_distributions` per investment
-- **Current Return**: `total_distributions - initial_amount` (profit distributions minus initial investment)
+- **Total Portfolio Value**: `amount + total_distributions` per investment
+- **Current Return**: `total_distributions - amount` (profit distributions minus initial investment)
 - **Portfolio Growth**: Cumulative initial amounts over time (area chart)
 - **Distribution**: Percentage by investment type (pie chart)
 
@@ -140,7 +145,7 @@ src/components/
 #### User Components
 
 - **`UserSelector`** - Full user selector with create functionality
-- **`UserSelector` (compact)** - Sidebar version with same create functionality  
+- **`UserSelector` (compact)** - Sidebar version with same create functionality
 - **`UserBadge`** - Simple display component showing current user
 
 ### Data Management

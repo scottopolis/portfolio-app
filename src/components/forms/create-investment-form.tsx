@@ -36,6 +36,8 @@ import {
   useCategories,
   useTags,
   useCreateInvestment,
+  useInvestmentTypes,
+  useCreateInvestmentType,
 } from '@/hooks/use-investments'
 import type { CreateInvestmentData } from '@/lib/types/investments'
 import { Plus } from 'lucide-react'
@@ -53,9 +55,10 @@ const investmentSchema = z.object({
     .or(z.literal('')),
   date_started: z
     .string()
-    .min(1, 'Start date is required')
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please enter a valid date'),
-  initial_amount: z
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Please enter a valid date')
+    .optional()
+    .nullable(),
+  amount: z
     .number({
       required_error: 'Initial amount is required',
       invalid_type_error: 'Initial amount must be a number',
@@ -82,11 +85,10 @@ export function CreateInvestmentForm({
 }: CreateInvestmentFormProps) {
   const { data: categories = [] } = useCategories(userId)
   const { data: tags = [] } = useTags(userId)
+  const { data: customInvestmentTypes = [] } = useInvestmentTypes(userId)
   const createInvestmentMutation = useCreateInvestment()
+  const createInvestmentTypeMutation = useCreateInvestmentType()
 
-  const [customInvestmentTypes, setCustomInvestmentTypes] = useState<string[]>(
-    [],
-  )
   const [newTypeDialogOpen, setNewTypeDialogOpen] = useState(false)
   const [newTypeName, setNewTypeName] = useState('')
 
@@ -95,8 +97,8 @@ export function CreateInvestmentForm({
     defaultValues: {
       name: '',
       description: '',
-      date_started: '',
-      initial_amount: undefined,
+      date_started: undefined,
+      amount: undefined,
       investment_type: undefined,
       category_ids: [],
       tag_ids: [],
@@ -110,7 +112,7 @@ export function CreateInvestmentForm({
         name: data.name,
         description: data.description || '',
         date_started: data.date_started,
-        initial_amount: data.initial_amount,
+        amount: data.amount,
         investment_type: data.investment_type,
         category_ids: data.category_ids?.length ? data.category_ids : undefined,
         tag_ids: data.tag_ids?.length ? data.tag_ids : undefined,
@@ -139,26 +141,36 @@ export function CreateInvestmentForm({
   const investmentTypeOptions = [
     ...defaultInvestmentTypes,
     ...customInvestmentTypes.map((type) => ({
-      value: type.toLowerCase().replace(/\s+/g, '_'),
-      label: type,
+      value: type.name.toLowerCase().replace(/\s+/g, '_'),
+      label: type.name,
     })),
   ]
 
-  const handleAddInvestmentType = () => {
+  const handleAddInvestmentType = async () => {
     if (
       newTypeName.trim() &&
       !customInvestmentTypes.some(
-        (type) => type.toLowerCase() === newTypeName.trim().toLowerCase(),
+        (type) => type.name.toLowerCase() === newTypeName.trim().toLowerCase(),
       )
     ) {
-      const newType = newTypeName.trim()
-      setCustomInvestmentTypes((prev) => [...prev, newType])
-      setNewTypeName('')
-      setNewTypeDialogOpen(false)
+      try {
+        const newType = newTypeName.trim()
 
-      // Automatically select the newly created type
-      const newValue = newType.toLowerCase().replace(/\s+/g, '_')
-      form.setValue('investment_type', newValue)
+        // Create the investment type in the database
+        await createInvestmentTypeMutation.mutateAsync({
+          userId,
+          name: newType,
+        })
+
+        setNewTypeName('')
+        setNewTypeDialogOpen(false)
+
+        // Automatically select the newly created type
+        const newValue = newType.toLowerCase().replace(/\s+/g, '_')
+        form.setValue('investment_type', newValue)
+      } catch (error) {
+        console.error('Failed to create investment type:', error)
+      }
     }
   }
 
@@ -231,28 +243,32 @@ export function CreateInvestmentForm({
         />
 
         <Controller
-          name="initial_amount"
+          name="amount"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Initial Amount</FieldLabel>
-              <Input
-                {...field}
-                id={field.name}
-                type="number"
-                step="0.01"
-                min="0"
-                aria-invalid={fieldState.invalid}
-                placeholder="0.00"
-                onChange={(e) => {
-                  const value = e.target.value
-                  field.onChange(value === '' ? undefined : parseFloat(value))
-                }}
-                value={field.value ?? ''}
-              />
-              <FieldDescription>
-                How much did you initially invest?
-              </FieldDescription>
+              <FieldLabel htmlFor={field.name}>Amount</FieldLabel>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                  $
+                </div>
+                <Input
+                  {...field}
+                  id={field.name}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  aria-invalid={fieldState.invalid}
+                  placeholder="0.00"
+                  className="pl-8"
+                  onChange={(e) => {
+                    const value = e.target.value
+                    field.onChange(value === '' ? undefined : parseFloat(value))
+                  }}
+                  value={field.value === undefined ? '' : field.value}
+                />
+              </div>
+              <FieldDescription>How much did you invest?</FieldDescription>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
@@ -340,9 +356,14 @@ export function CreateInvestmentForm({
                     <Button
                       type="button"
                       onClick={handleAddInvestmentType}
-                      disabled={!newTypeName.trim()}
+                      disabled={
+                        !newTypeName.trim() ||
+                        createInvestmentTypeMutation.isPending
+                      }
                     >
-                      Add Type
+                      {createInvestmentTypeMutation.isPending
+                        ? 'Adding...'
+                        : 'Add Type'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

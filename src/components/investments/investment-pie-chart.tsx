@@ -10,12 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import type {
-  ChartConfig} from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart'
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
 } from '@/components/ui/chart'
 import type { InvestmentWithDetails } from '@/lib/types/investments'
 import { useInvestments } from '@/hooks/use-investments'
@@ -73,7 +72,7 @@ export function InvestmentPieChart({
           acc[category] = 0
         }
         acc[category] +=
-          parseFloat(investment.initial_amount) +
+          parseFloat(investment.amount) +
           parseFloat(investment.total_distributions)
         return acc
       },
@@ -160,22 +159,11 @@ export function InvestmentPieChart({
           className="mx-auto aspect-square max-h-[300px]"
         >
           <PieChart>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="category"
-              label={(entry) =>
-                `${entry.category}: ${entry.percentage.toFixed(1)}%`
-              }
-              cx="50%"
-              cy="50%"
-              outerRadius={80}
-              innerRadius={0}
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
             />
-            <ChartLegend
-              content={<ChartLegendContent nameKey="category" />}
-              className="-translate-y-2 flex-wrap gap-2 *:basis-1/4 *:justify-center"
-            />
+            <Pie data={chartData} dataKey="value" nameKey="category" />
           </PieChart>
         </ChartContainer>
       </CardContent>

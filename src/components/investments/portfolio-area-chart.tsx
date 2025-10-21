@@ -12,8 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import type {
-  ChartConfig} from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart'
 import {
   ChartContainer,
   ChartTooltip,
@@ -44,11 +43,12 @@ export function PortfolioAreaChart() {
     const timeline: { [key: string]: number } = {}
 
     investments.forEach((investment) => {
-      const date = investment.date_started
+      const date =
+        investment.date_started || new Date().toISOString().split('T')[0]
       if (!timeline[date]) {
         timeline[date] = 0
       }
-      timeline[date] += parseFloat(investment.initial_amount.toString())
+      timeline[date] += parseFloat(investment.amount.toString())
     })
 
     // Sort dates and create cumulative portfolio values

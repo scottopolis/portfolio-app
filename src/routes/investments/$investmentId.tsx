@@ -4,25 +4,11 @@ import { ArrowLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  useInvestmentById,
-  investmentDetailsQueryOptions,
-} from '@/hooks/use-investments'
+import { useInvestmentById } from '@/hooks/use-investments'
 import { EditInvestmentDrawer } from '@/components/investments/edit-investment-drawer'
 import { AddDistributionDialog } from '@/components/distributions/add-distribution-dialog'
 
 export const Route = createFileRoute('/investments/$investmentId')({
-  loader: async ({ context, params }) => {
-    // Get the current user ID (default to 1 for now, in real app this would come from auth)
-    const userId = 1
-    const investmentId = parseInt(params.investmentId)
-
-    if (investmentId && !isNaN(investmentId)) {
-      await context.queryClient.ensureQueryData(
-        investmentDetailsQueryOptions(userId, investmentId),
-      )
-    }
-  },
   component: InvestmentDetailPage,
 })
 
@@ -42,10 +28,12 @@ function InvestmentDetailPage() {
     return <InvestmentDetailError />
   }
 
-  const daysSinceStart = Math.floor(
-    (new Date().getTime() - new Date(investment.date_started).getTime()) /
-      (1000 * 60 * 60 * 24),
-  )
+  const daysSinceStart = investment.date_started
+    ? Math.floor(
+        (new Date().getTime() - new Date(investment.date_started).getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : 0
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -125,7 +113,7 @@ function InvestmentDetailPage() {
                     Initial Amount
                   </h3>
                   <p className="text-2xl font-semibold">
-                    {formatCurrency(investment.initial_amount)}
+                    {formatCurrency(investment.amount)}
                   </p>
                 </div>
 
@@ -134,10 +122,14 @@ function InvestmentDetailPage() {
                     Date Started
                   </h3>
                   <p className="text-sm">
-                    {formatDate(investment.date_started)}
+                    {investment.date_started
+                      ? formatDate(investment.date_started)
+                      : 'Not specified'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {daysSinceStart} days ago
+                    {investment.date_started
+                      ? `${daysSinceStart} days ago`
+                      : ''}
                   </p>
                 </div>
               </div>
