@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { IconUser, IconUsers, IconPlus } from '@tabler/icons-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,10 +27,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  useCurrentUser,
-  useSetCurrentUser,
-} from '@/stores/user-store'
+import { useCurrentUser, useSetCurrentUser } from '@/stores/user-store'
 import type { User } from '@/stores/user-store'
 import { useUsers, useCreateUser } from '@/hooks/use-users'
 
@@ -54,7 +51,9 @@ export function UserSelector({
 
   const handleUserChange = (userId: string) => {
     const user = users.find((u) => u.id.toString() === userId)
-    setCurrentUser(user ? { id: user.id, name: user.name, email: user.email } : null)
+    setCurrentUser(
+      user ? { id: user.id, name: user.name, email: user.email } : null,
+    )
   }
 
   const handleCreateUser = async () => {
@@ -65,7 +64,11 @@ export function UserSelector({
         name: newUserName.trim(),
         email: newUserEmail.trim(),
       })
-      setCurrentUser({ id: newUser.id, name: newUser.name, email: newUser.email })
+      setCurrentUser({
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+      })
       setIsCreateDialogOpen(false)
       setNewUserName('')
       setNewUserEmail('')
@@ -85,18 +88,20 @@ export function UserSelector({
           >
             <SelectTrigger className="w-full">
               <div className="flex items-center gap-2">
-                <SelectValue 
+                <SelectValue
                   placeholder={
-                    isLoading 
-                      ? "Loading users..." 
+                    isLoading
+                      ? 'Loading users...'
                       : `Select user (${users.length} available)`
-                  } 
+                  }
                 />
               </div>
             </SelectTrigger>
             <SelectContent>
               {users.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">No users found</div>
+                <div className="p-2 text-sm text-muted-foreground">
+                  No users found
+                </div>
               ) : (
                 users.map((user) => (
                   <SelectItem key={user.id} value={user.id.toString()}>
@@ -166,7 +171,9 @@ export function UserSelector({
                 <Button
                   onClick={handleCreateUser}
                   disabled={
-                    !newUserName.trim() || !newUserEmail.trim() || createUserMutation.isPending
+                    !newUserName.trim() ||
+                    !newUserEmail.trim() ||
+                    createUserMutation.isPending
                   }
                 >
                   {createUserMutation.isPending ? 'Creating...' : 'Create User'}
@@ -232,7 +239,7 @@ export function UserSelector({
                 <DialogHeader>
                   <DialogTitle>Create New User</DialogTitle>
                   <DialogDescription>
-                  Add a new user to the system.
+                    Add a new user to the system.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -269,10 +276,14 @@ export function UserSelector({
                   <Button
                     onClick={handleCreateUser}
                     disabled={
-                      !newUserName.trim() || !newUserEmail.trim() || createUserMutation.isPending
+                      !newUserName.trim() ||
+                      !newUserEmail.trim() ||
+                      createUserMutation.isPending
                     }
                   >
-                    {createUserMutation.isPending ? 'Creating...' : 'Create User'}
+                    {createUserMutation.isPending
+                      ? 'Creating...'
+                      : 'Create User'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -304,7 +315,8 @@ export function UserSelector({
         </div>
 
         <div className="pt-2 text-xs text-muted-foreground">
-          💡 For development purposes. In production, this would be replaced with proper authentication and user management.
+          💡 For development purposes. In production, this would be replaced
+          with proper authentication and user management.
         </div>
       </CardContent>
     </Card>
