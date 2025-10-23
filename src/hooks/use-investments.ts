@@ -121,6 +121,16 @@ export function useCreateInvestment() {
       queryClient.invalidateQueries({
         queryKey: investmentKeys.list(variables.userId),
       })
+
+      // Invalidate portfolio-specific investment queries
+      queryClient.invalidateQueries({
+        queryKey: ['portfolios', variables.userId, variables.portfolio_id, 'investments'],
+      })
+
+      // Invalidate all portfolio queries to update counts/totals
+      queryClient.invalidateQueries({
+        queryKey: ['portfolios', variables.userId],
+      })
     },
   })
 }
@@ -237,6 +247,21 @@ export function useCreateInvestmentType() {
         queryKey: investmentTypeKeys.list(variables.userId),
       })
     },
+  })
+}
+
+// Hook to get investments for a specific portfolio
+export function useInvestmentsByPortfolio(userId: number, portfolioId: number) {
+  return useQuery({
+    queryKey: ['portfolios', userId, portfolioId, 'investments'],
+    queryFn: async () => {
+      const { getPortfolioWithInvestments } = await import('@/data/investments')
+      const portfolio = await getPortfolioWithInvestments({
+        data: { userId, portfolioId }
+      })
+      return portfolio.investments
+    },
+    enabled: !!userId && !!portfolioId,
   })
 }
 

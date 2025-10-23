@@ -19,6 +19,7 @@ import type {
 } from '@/lib/types/investments'
 
 // Track if schema has been initialized to prevent multiple initializations
+// Set to false to force re-initialization and run migrations
 let schemaInitialized = false
 
 // Initialize database schema with migration support
@@ -250,6 +251,21 @@ async function performPortfolioMigration(client: any) {
     AND investments.portfolio_id IS NULL
   `)
 
+  console.log('Making user_id nullable for new investments...')
+  // Check if user_id exists before trying to alter it
+  const userIdColumn = await client.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_name = 'investments' AND column_name = 'user_id'
+  `)
+
+  if (userIdColumn.length > 0) {
+    await client.query(`
+      ALTER TABLE investments
+      ALTER COLUMN user_id DROP NOT NULL
+    `)
+  }
+
   console.log('Creating indexes...')
   await client.query(
     `CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id)`,
@@ -412,15 +428,27 @@ export const createInvestment = createServerFn({
 
     await initializeSchema()
 
+    // Ensure user_id column is nullable (migration step)
+    try {
+      await client.query(`
+        ALTER TABLE investments
+        ALTER COLUMN user_id DROP NOT NULL
+      `)
+      console.log('✅ Made user_id column nullable')
+    } catch (error) {
+      // Column might not exist or already nullable, that's fine
+      console.log('user_id column check:', error)
+    }
+
     // Insert investment
     const result = await client.query(
       `
-      INSERT INTO investments (user_id, name, description, date_started, amount, investment_type)
+      INSERT INTO investments (portfolio_id, name, description, date_started, amount, investment_type)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `,
       [
-        data.userId,
+        data.portfolio_id,
         data.name,
         data.description,
         data.date_started,
@@ -791,8 +819,6 @@ export const getPortfolios = createServerFn({
       'SELECT * FROM portfolios WHERE user_id = $1',
       [userId],
     )
-    console.log('🚀 Simple portfolio query result:', simpleResult)
-
     const result = await client.query(
       `
       SELECT p.*,

@@ -194,7 +194,7 @@ function InvestmentDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {investment.distributions && investment.distributions.length > 0 ? (
+            {investment.distributions.length > 0 ? (
               <div className="space-y-4">
                 {investment.distributions.map((distribution) => (
                   <div
@@ -244,7 +244,7 @@ function InvestmentDetailPage() {
 function InvestmentDetailSkeleton({ portfolioId }: { portfolioId: string }) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mt-4">
         <Link to="/portfolios/$portfolioId" params={{ portfolioId }}>
           <Button variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />

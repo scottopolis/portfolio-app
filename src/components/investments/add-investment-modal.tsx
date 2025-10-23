@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { IconPlus } from '@tabler/icons-react'
+import { useParams } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,18 +14,17 @@ import { CreateInvestmentForm } from '@/components/forms/create-investment-form'
 import { useCurrentUser } from '@/stores/user-store'
 
 interface AddInvestmentModalProps {
-  portfolioId?: number
   children?: React.ReactNode
   onSuccess?: (investment: any) => void
 }
 
 export function AddInvestmentModal({
-  portfolioId,
   children,
   onSuccess,
 }: AddInvestmentModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const currentUser = useCurrentUser()
+  const { portfolioId } = useParams({ from: '/portfolios/$portfolioId' })
 
   const handleSuccess = (investment: any) => {
     setIsOpen(false)
@@ -59,7 +59,7 @@ export function AddInvestmentModal({
         </DialogHeader>
         <CreateInvestmentForm
           userId={currentUser.id}
-          portfolioId={portfolioId}
+          portfolioId={Number(portfolioId)}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
         />

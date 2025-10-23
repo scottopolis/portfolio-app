@@ -13,20 +13,11 @@ import type {
 
 // Get all portfolios for a user
 export function usePortfolios(userId: number) {
-  console.log(
-    '🚀 usePortfolios called with userId:',
-    userId,
-    'enabled:',
-    !!userId,
-  )
-
   return useQuery({
     queryKey: ['portfolios', userId],
     queryFn: async () => {
-      console.log('🚀 getPortfolios queryFn executing for userId:', userId)
       try {
         const result = await getPortfolios({ data: userId })
-        console.log('🚀 getPortfolios queryFn result:', result)
         return result
       } catch (error) {
         console.error('🚨 getPortfolios queryFn error:', error)

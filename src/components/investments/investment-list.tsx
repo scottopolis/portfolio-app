@@ -14,27 +14,27 @@ import {
   ItemSeparator,
   ItemTitle,
 } from '@/components/ui/item'
-import { useInvestments } from '@/hooks/use-investments'
+import { useInvestmentsByPortfolio } from '@/hooks/use-investments'
 import { useCurrentUser } from '@/stores/user-store'
 import { AddInvestmentModal } from './add-investment-modal'
 import type { InvestmentWithDetails } from '@/lib/types/investments'
 import { Badge } from '../ui/badge'
 
-interface InvestmentCardsProps {
+interface InvestmentListProps {
   onCreateInvestment?: () => void
   portfolioId: string
 }
 
-export function InvestmentCards({
+export function InvestmentList({
   onCreateInvestment,
   portfolioId,
-}: InvestmentCardsProps) {
+}: InvestmentListProps) {
   const currentUser = useCurrentUser()
   const {
     data: investments,
     isLoading,
     error,
-  } = useInvestments(currentUser?.id || 0)
+  } = useInvestmentsByPortfolio(currentUser?.id || 0, parseInt(portfolioId))
 
   if (!currentUser) {
     return (
@@ -68,7 +68,7 @@ export function InvestmentCards({
 
   // Show loading state only if we don't have data yet
   if (isLoading && investments === undefined) {
-    return <InvestmentCardsLoading />
+    return <InvestmentListLoading />
   }
 
   const formatCurrency = (amount: number) => {
@@ -137,9 +137,6 @@ function InvestmentItem({
     }
   }
 
-  const currentReturn = investment.total_distributions - investment.amount
-  const hasPositiveReturn = currentReturn > 0
-
   return (
     <Link
       to="/portfolios/$portfolioId/investments/$investmentId"
@@ -158,41 +155,13 @@ function InvestmentItem({
             <Badge variant="secondary" className="text-xs">
               {getInvestmentTypeLabel(investment.investment_type)}
             </Badge>
-            <span>•</span>
-            <span>Initial: {formatCurrency(investment.amount)}</span>
-            {investment.total_distributions > 0 && (
-              <>
-                <span>•</span>
-                <span className="text-green-600 dark:text-green-400">
-                  Distributions:{' '}
-                  {formatCurrency(investment.total_distributions)}
-                </span>
-              </>
-            )}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
           <div className="text-right">
             <div className="text-sm font-medium tabular-nums">
-              {formatCurrency(
-                investment.amount + investment.total_distributions,
-              )}
+              {formatCurrency(investment.amount)}
             </div>
-            {currentReturn !== 0 && (
-              <div
-                className={`text-xs tabular-nums flex items-center gap-1 ${
-                  hasPositiveReturn
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}
-              >
-                <TrendingUpIcon
-                  className={`h-3 w-3 ${!hasPositiveReturn ? 'rotate-180' : ''}`}
-                />
-                {hasPositiveReturn ? '+' : ''}
-                {formatCurrency(currentReturn)}
-              </div>
-            )}
           </div>
         </ItemActions>
       </Item>
@@ -200,7 +169,7 @@ function InvestmentItem({
   )
 }
 
-function InvestmentCardsLoading() {
+function InvestmentListLoading() {
   return (
     <ItemGroup>
       {Array.from({ length: 4 }).map((_, i) => (

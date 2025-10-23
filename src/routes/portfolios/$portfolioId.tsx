@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowLeft, Plus, Folder } from 'lucide-react'
+import { ArrowLeft, Folder } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,8 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePortfolioById } from '@/hooks/use-portfolios'
 import { useCurrentUser } from '@/stores/user-store'
-import { AddInvestmentModal } from '@/components/investments/add-investment-modal'
-import { InvestmentCards } from '@/components/investments/investment-cards'
+import { InvestmentList } from '@/components/investments/investment-list'
 
 export const Route = createFileRoute('/portfolios/$portfolioId')({
   component: PortfolioDetailPage,
@@ -146,7 +145,7 @@ function PortfolioDetailPage() {
 
       {/* Investments Section */}
       <div className="space-y-4">
-        <InvestmentCards portfolioId={portfolioId} />
+        <InvestmentList portfolioId={portfolioId} />
       </div>
     </div>
   )
