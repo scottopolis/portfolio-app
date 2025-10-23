@@ -23,24 +23,11 @@ interface PortfolioCardsProps {
 export function PortfolioCards({ onCreatePortfolio }: PortfolioCardsProps) {
   const currentUser = useCurrentUser()
 
-  console.log('🚀 PortfolioCards render:', {
-    currentUser,
-    userId: currentUser?.id || 1,
-  })
-
   const {
     data: portfolios,
     isLoading,
     error,
   } = usePortfolios(currentUser?.id || 1) // Use user ID 1 (John Doe) as fallback
-
-  console.log('🚀 PortfolioCards query state:', {
-    portfolios,
-    isLoading,
-    error,
-    hasPortfolios: !!portfolios,
-    portfoliosLength: portfolios?.length,
-  })
 
   if (!currentUser) {
     return (

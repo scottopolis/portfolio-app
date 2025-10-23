@@ -43,7 +43,8 @@ export function usePortfolios(userId: number) {
 export function usePortfolioById(userId: number, portfolioId: number) {
   return useQuery({
     queryKey: ['portfolio', userId, portfolioId],
-    queryFn: () => getPortfolioWithInvestments({ data: { userId, portfolioId } }),
+    queryFn: () =>
+      getPortfolioWithInvestments({ data: { userId, portfolioId } }),
     enabled: !!userId && !!portfolioId,
   })
 }

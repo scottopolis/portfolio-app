@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePortfolioById } from '@/hooks/use-portfolios'
 import { useCurrentUser } from '@/stores/user-store'
 import { AddInvestmentModal } from '@/components/investments/add-investment-modal'
+import { InvestmentCards } from '@/components/investments/investment-cards'
 
 export const Route = createFileRoute('/portfolios/$portfolioId')({
   component: PortfolioDetailPage,
@@ -145,106 +146,9 @@ function PortfolioDetailPage() {
 
       {/* Investments Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Investments</h2>
-          <AddInvestmentModal
-            portfolioId={parseInt(portfolioId)}
-            onSuccess={() => {}}
-          />
-        </div>
-
-        {portfolio.investments.length > 0 ? (
-          <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-            {portfolio.investments.map((investment) => (
-              <InvestmentCard key={investment.id} investment={investment} />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="mx-auto p-3 rounded-full bg-muted/50 w-fit mb-4">
-                <Plus className="size-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">No investments yet</h3>
-              <p className="text-muted-foreground mb-4 text-center max-w-sm">
-                Start building this portfolio by adding your first investment.
-              </p>
-              <AddInvestmentModal
-                portfolioId={parseInt(portfolioId)}
-                onSuccess={() => {}}
-              >
-                <Button>
-                  <Plus className="size-4" />
-                  Add Investment
-                </Button>
-              </AddInvestmentModal>
-            </CardContent>
-          </Card>
-        )}
+        <InvestmentCards portfolioId={portfolioId} />
       </div>
     </div>
-  )
-}
-
-function InvestmentCard({ investment }: { investment: any }) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount)
-  }
-
-  const getInvestmentTypeLabel = (type: string) => {
-    switch (type) {
-      case 'stocks':
-        return 'Stocks'
-      case 'real_estate':
-        return 'Real Estate'
-      case 'other':
-        return 'Other'
-      default:
-        return type
-    }
-  }
-
-  return (
-    <Link
-      to="/investments/$investmentId"
-      params={{ investmentId: investment.id.toString() }}
-      className="flex h-full"
-    >
-      <Card className="@container/card hover:shadow-md transition-shadow cursor-pointer flex flex-col w-full">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold tabular-nums truncate">
-            {investment.name}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-col items-start gap-1.5 text-sm mt-auto">
-          <div className="flex justify-between items-center w-full">
-            <span className="text-muted-foreground">Amount:</span>
-            <span className="font-medium tabular-nums">
-              {formatCurrency(investment.amount)}
-            </span>
-          </div>
-          {investment.total_distributions > 0 ? (
-            <div className="flex justify-between items-center w-full">
-              <span className="text-muted-foreground">
-                Total Distributions:
-              </span>
-              <span className="font-medium tabular-nums text-green-600 dark:text-green-400">
-                {formatCurrency(investment.total_distributions)}
-              </span>
-            </div>
-          ) : null}
-          <div className="pt-1 text-xs text-muted-foreground line-clamp-2">
-            <Badge variant="secondary">
-              {getInvestmentTypeLabel(investment.investment_type)}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
   )
 }
 

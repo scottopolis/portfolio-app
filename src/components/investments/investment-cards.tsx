@@ -1,15 +1,19 @@
-import { IconPlus } from '@tabler/icons-react'
+import * as React from 'react'
+import { PlusIcon, TrendingUpIcon, DollarSignIcon } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from '@/components/ui/item'
 import { useInvestments } from '@/hooks/use-investments'
 import { useCurrentUser } from '@/stores/user-store'
 import { AddInvestmentModal } from './add-investment-modal'
@@ -18,9 +22,13 @@ import { Badge } from '../ui/badge'
 
 interface InvestmentCardsProps {
   onCreateInvestment?: () => void
+  portfolioId: string
 }
 
-export function InvestmentCards({ onCreateInvestment }: InvestmentCardsProps) {
+export function InvestmentCards({
+  onCreateInvestment,
+  portfolioId,
+}: InvestmentCardsProps) {
   const currentUser = useCurrentUser()
   const {
     data: investments,
@@ -59,7 +67,7 @@ export function InvestmentCards({ onCreateInvestment }: InvestmentCardsProps) {
   }
 
   // Show loading state only if we don't have data yet
-  if (isLoading && !investments) {
+  if (isLoading && investments === undefined) {
     return <InvestmentCardsLoading />
   }
 
@@ -76,11 +84,11 @@ export function InvestmentCards({ onCreateInvestment }: InvestmentCardsProps) {
       const initialAmount = Number(investment.amount) || 0
       const distributions = Number(investment.total_distributions) || 0
       return total + initialAmount + distributions
-    }, 0) || 0
+    }, 0) ?? 0
 
   return (
     <div className="space-y-6">
-      {/* Add Investment Button */}
+      {/* Portfolio Total and Add Investment Button */}
       <div className="flex justify-between items-center">
         <div>
           <p className="text-4xl font-bold">{formatCurrency(portfolioTotal)}</p>
@@ -88,17 +96,26 @@ export function InvestmentCards({ onCreateInvestment }: InvestmentCardsProps) {
         <AddInvestmentModal onSuccess={onCreateInvestment} />
       </div>
 
-      {/* Investment Cards */}
-      <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-        {investments.map((investment) => (
-          <InvestmentCard key={investment.id} investment={investment} />
+      {/* Investment Items */}
+      <ItemGroup>
+        {investments?.map((investment, index) => (
+          <React.Fragment key={investment.id}>
+            <InvestmentItem investment={investment} portfolioId={portfolioId} />
+            {index !== investments.length - 1 && <ItemSeparator />}
+          </React.Fragment>
         ))}
-      </div>
+      </ItemGroup>
     </div>
   )
 }
 
-function InvestmentCard({ investment }: { investment: InvestmentWithDetails }) {
+function InvestmentItem({
+  investment,
+  portfolioId,
+}: {
+  investment: InvestmentWithDetails
+  portfolioId: string
+}) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -120,76 +137,97 @@ function InvestmentCard({ investment }: { investment: InvestmentWithDetails }) {
     }
   }
 
+  const currentReturn = investment.total_distributions - investment.amount
+  const hasPositiveReturn = currentReturn > 0
+
   return (
     <Link
-      to="/investments/$investmentId"
-      params={{ investmentId: investment.id.toString() }}
-      className="flex h-full"
+      to="/portfolios/$portfolioId/investments/$investmentId"
+      params={{ portfolioId, investmentId: investment.id.toString() }}
+      className="w-full"
     >
-      <Card className="@container/card hover:shadow-md transition-shadow cursor-pointer flex flex-col w-full">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold tabular-nums truncate">
-            {investment.name}
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm mt-auto">
-          <div className="flex justify-between items-center w-full">
-            <span className="text-muted-foreground">Amount:</span>
-            <span className="font-medium tabular-nums">
-              {formatCurrency(investment.amount)}
-            </span>
+      <Item className="hover:bg-muted/50 transition-colors cursor-pointer">
+        <ItemMedia>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <DollarSignIcon className="h-5 w-5 text-primary" />
           </div>
-          {investment.total_distributions > 0 ? (
-            <div className="flex justify-between items-center w-full">
-              <span className="text-muted-foreground">
-                Total Distributions:
-              </span>
-              <span className="font-medium tabular-nums text-green-600 dark:text-green-400">
-                {formatCurrency(investment.total_distributions)}
-              </span>
-            </div>
-          ) : null}
-          <div className="pt-1 text-xs text-muted-foreground line-clamp-2">
-            <Badge variant="secondary">
+        </ItemMedia>
+        <ItemContent className="gap-1">
+          <ItemTitle className="text-base">{investment.name}</ItemTitle>
+          <ItemDescription className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">
               {getInvestmentTypeLabel(investment.investment_type)}
             </Badge>
+            <span>•</span>
+            <span>Initial: {formatCurrency(investment.amount)}</span>
+            {investment.total_distributions > 0 && (
+              <>
+                <span>•</span>
+                <span className="text-green-600 dark:text-green-400">
+                  Distributions:{' '}
+                  {formatCurrency(investment.total_distributions)}
+                </span>
+              </>
+            )}
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          <div className="text-right">
+            <div className="text-sm font-medium tabular-nums">
+              {formatCurrency(
+                investment.amount + investment.total_distributions,
+              )}
+            </div>
+            {currentReturn !== 0 && (
+              <div
+                className={`text-xs tabular-nums flex items-center gap-1 ${
+                  hasPositiveReturn
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}
+              >
+                <TrendingUpIcon
+                  className={`h-3 w-3 ${!hasPositiveReturn ? 'rotate-180' : ''}`}
+                />
+                {hasPositiveReturn ? '+' : ''}
+                {formatCurrency(currentReturn)}
+              </div>
+            )}
           </div>
-        </CardFooter>
-      </Card>
+        </ItemActions>
+      </Item>
     </Link>
   )
 }
 
 function InvestmentCardsLoading() {
   return (
-    <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <ItemGroup>
       {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i} className="@container/card">
-          <CardHeader>
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-8 w-full" />
-            <div className="flex justify-end">
-              <Skeleton className="h-6 w-16 rounded-full" />
-            </div>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-3">
-            <div className="flex justify-between items-center w-full">
-              <Skeleton className="h-4 w-12" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-            <div className="flex justify-between items-center w-full">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-            <div className="flex justify-between items-center w-full">
-              <Skeleton className="h-4 w-12" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-            <Skeleton className="h-3 w-full" />
-          </CardFooter>
-        </Card>
+        <React.Fragment key={i}>
+          <Item>
+            <ItemMedia>
+              <Skeleton className="h-10 w-10 rounded-full" />
+            </ItemMedia>
+            <ItemContent className="gap-1">
+              <Skeleton className="h-5 w-32" />
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-16 rounded-full" />
+                <Skeleton className="h-3 w-1" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </ItemContent>
+            <ItemActions>
+              <div className="text-right">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-3 w-16 mt-1" />
+              </div>
+            </ItemActions>
+          </Item>
+          {i !== 3 && <ItemSeparator />}
+        </React.Fragment>
       ))}
-    </div>
+    </ItemGroup>
   )
 }
 
@@ -200,23 +238,22 @@ function EmptyInvestments({
 }) {
   return (
     <div className="flex items-center justify-center p-8">
-      <Card className="max-w-md w-full">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">No investments yet</CardTitle>
-          <CardDescription className="text-sm">
-            Start tracking your investments to see your portfolio performance
-            and returns.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="flex justify-center">
-          <AddInvestmentModal onSuccess={onCreateInvestment}>
-            <Button className="w-full">
-              <IconPlus className="size-4" />
-              Create First Investment
-            </Button>
-          </AddInvestmentModal>
-        </CardFooter>
-      </Card>
+      <div className="text-center max-w-md">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto mb-4">
+          <DollarSignIcon className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">No investments yet</h3>
+        <p className="text-sm text-muted-foreground mb-6">
+          Start tracking your investments to see your portfolio performance and
+          returns.
+        </p>
+        <AddInvestmentModal onSuccess={onCreateInvestment}>
+          <Button>
+            <PlusIcon className="h-4 w-4" />
+            Create First Investment
+          </Button>
+        </AddInvestmentModal>
+      </div>
     </div>
   )
 }

@@ -236,16 +236,16 @@ async function performPortfolioMigration(client: any) {
 
   console.log('Adding portfolio_id column to investments...')
   await client.query(`
-    ALTER TABLE investments 
+    ALTER TABLE investments
     ADD COLUMN IF NOT EXISTS portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE CASCADE
   `)
 
   console.log('Migrating existing investments to portfolios...')
   await client.query(`
-    UPDATE investments 
+    UPDATE investments
     SET portfolio_id = p.id
     FROM portfolios p
-    WHERE investments.user_id = p.user_id 
+    WHERE investments.user_id = p.user_id
     AND p.name = 'My Portfolio'
     AND investments.portfolio_id IS NULL
   `)
@@ -779,8 +779,6 @@ export const getPortfolios = createServerFn({
 })
   .inputValidator((userId: number) => userId)
   .handler(async ({ data: userId }) => {
-    console.log('🚀 getPortfolios server function called with userId:', userId)
-
     const client = await getClient()
     if (!client) {
       throw new Error('Database connection failed')
@@ -820,14 +818,6 @@ export const getPortfolios = createServerFn({
       total_invested: number
       total_distributions: number
     })[]
-
-    console.log(
-      '🚀 getPortfolios returning:',
-      portfolios.length,
-      'portfolios for userId:',
-      userId,
-    )
-    console.log('🚀 Raw result:', result)
 
     return portfolios
   })
