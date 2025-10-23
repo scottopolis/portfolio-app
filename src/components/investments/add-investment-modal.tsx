@@ -13,11 +13,13 @@ import { CreateInvestmentForm } from '@/components/forms/create-investment-form'
 import { useCurrentUser } from '@/stores/user-store'
 
 interface AddInvestmentModalProps {
+  portfolioId?: number
   children?: React.ReactNode
   onSuccess?: (investment: any) => void
 }
 
 export function AddInvestmentModal({
+  portfolioId,
   children,
   onSuccess,
 }: AddInvestmentModalProps) {
@@ -57,6 +59,7 @@ export function AddInvestmentModal({
         </DialogHeader>
         <CreateInvestmentForm
           userId={currentUser.id}
+          portfolioId={portfolioId}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
         />

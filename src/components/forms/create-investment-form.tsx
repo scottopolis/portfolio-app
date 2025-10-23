@@ -74,12 +74,14 @@ type InvestmentFormData = z.infer<typeof investmentSchema>
 
 interface CreateInvestmentFormProps {
   userId: number
+  portfolioId?: number
   onSuccess?: (investment: any) => void
   onCancel?: () => void
 }
 
 export function CreateInvestmentForm({
   userId,
+  portfolioId,
   onSuccess,
   onCancel,
 }: CreateInvestmentFormProps) {
@@ -108,7 +110,14 @@ export function CreateInvestmentForm({
 
   async function onSubmit(data: InvestmentFormData) {
     try {
+      // For now, require portfolioId to be provided
+      if (!portfolioId) {
+        console.error('Portfolio ID is required to create investment')
+        return
+      }
+
       const investmentData: CreateInvestmentData = {
+        portfolio_id: portfolioId,
         name: data.name,
         description: data.description || '',
         date_started: data.date_started,
@@ -265,7 +274,7 @@ export function CreateInvestmentForm({
                     const value = e.target.value
                     field.onChange(value === '' ? undefined : parseFloat(value))
                   }}
-                  value={field.value === undefined ? '' : field.value}
+                  value={field.value ?? ''}
                 />
               </div>
               <FieldDescription>How much did you invest?</FieldDescription>

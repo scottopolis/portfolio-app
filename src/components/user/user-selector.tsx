@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { IconUser, IconUsers, IconPlus } from '@tabler/icons-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,11 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useCurrentUser, useSetCurrentUser } from '@/stores/user-store'
+import {
+  useCurrentUser,
+  useSetCurrentUser,
+  useInitializeUsers,
+} from '@/stores/user-store'
 import type { User } from '@/stores/user-store'
 import { useUsers, useCreateUser } from '@/hooks/use-users'
 
@@ -44,10 +48,16 @@ export function UserSelector({
   const { data: users = [], isLoading } = useUsers()
   const setCurrentUser = useSetCurrentUser()
   const createUserMutation = useCreateUser()
+  const initializeUsers = useInitializeUsers()
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newUserName, setNewUserName] = useState('')
   const [newUserEmail, setNewUserEmail] = useState('')
+
+  // Initialize users when component mounts
+  useEffect(() => {
+    initializeUsers()
+  }, [initializeUsers])
 
   const handleUserChange = (userId: string) => {
     const user = users.find((u) => u.id.toString() === userId)

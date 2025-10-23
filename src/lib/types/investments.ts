@@ -6,9 +6,19 @@ export interface User {
   updated_at: string
 }
 
-export interface Investment {
+export interface Portfolio {
   id: number
   user_id: number
+  name: string
+  description?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Investment {
+  id: number
+  portfolio_id: number
+  user_id?: number // Legacy field - will be removed after migration
   name: string
   description: string
   date_started?: string
@@ -54,7 +64,13 @@ export interface InvestmentWithDetails extends Investment {
   current_return: number
 }
 
+export interface CreatePortfolioData {
+  name: string
+  description?: string
+}
+
 export interface CreateInvestmentData {
+  portfolio_id: number
   name: string
   description: string
   date_started?: string
@@ -81,6 +97,11 @@ export interface CreateTagData {
 
 export interface CreateInvestmentTypeData {
   name: string
+}
+
+export interface UpdatePortfolioData {
+  name: string
+  description?: string
 }
 
 export interface UpdateInvestmentData {

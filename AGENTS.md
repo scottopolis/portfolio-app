@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A personal finance application for tracking investments built with modern React stack, focusing on portfolio management and visualization.
+A personal finance application for tracking investments built with modern React stack, focusing on portfolio management and visualization. Users can organize their investments into multiple portfolios and track performance across different investment strategies.
 
 ## Technology Stack
 
@@ -38,22 +38,26 @@ A personal finance application for tracking investments built with modern React 
 
 ### Schema Reset Behavior
 
-- **Development Mode**: `initializeSchema()` drops and recreates ALL tables on first query
-- **Data Loss**: Existing data is cleared when schema is re-initialized
-- **Migration Path**: Schema was migrated from PostgreSQL ENUM to VARCHAR for investment_type flexibility
+- **Development Mode**: `initializeSchema()` includes smart migration logic to preserve data
+- **Portfolio Migration**: Automatically detects existing investments and creates default portfolios
+- **Data Preservation**: Existing investments are moved to default "My Portfolio" without data loss
+- **Migration Path**: Schema was migrated from direct user→investment to user→portfolio→investment structure
 - **Production Note**: In production, use proper database migrations instead of full schema reset
 
 ### Database Schema Structure
 
 ```
 users (id, email, password_hash, name, timestamps)
-├── investments (id, user_id, name, description, date_started, amount, investment_type, timestamps)
-│   ├── distributions (id, investment_id, date, amount, description, created_at)
-│   ├── investment_categories (investment_id, category_id) [junction table]
-│   └── investment_tags (investment_id, tag_id) [junction table]
+├── portfolios (id, user_id, name, description, timestamps)
+│   └── investments (id, portfolio_id, user_id*, name, description, date_started, amount, investment_type, timestamps)
+│       ├── distributions (id, investment_id, date, amount, description, created_at)
+│       ├── investment_categories (investment_id, category_id) [junction table]
+│       └── investment_tags (investment_id, tag_id) [junction table]
 ├── categories (id, user_id, name, created_at)
 ├── tags (id, user_id, name, created_at)
 └── investment_types (id, user_id, name, created_at) [user-specific custom investment types]
+
+* user_id in investments is legacy field for migration, will be removed after full migration
 ```
 
 ### Investment Types
@@ -69,7 +73,9 @@ users (id, email, password_hash, name, timestamps)
 ### Data Flow
 
 1. **Source**: `src/data/investments.ts` - Server functions using TanStack Start
-2. **Hooks**: `src/hooks/use-investments.ts` - React Query hooks for data fetching
+2. **Hooks**:
+   - `src/hooks/use-investments.ts` - React Query hooks for investment data fetching
+   - `src/hooks/use-portfolios.ts` - React Query hooks for portfolio data fetching
 3. **Types**: `src/lib/types/investments.ts` - TypeScript interfaces
 
 ### Key Calculations
@@ -92,8 +98,11 @@ users (id, email, password_hash, name, timestamps)
 ```
 src/components/
 ├── ui/ - shadcn/ui base components
+├── portfolios/ - Portfolio-specific components
+│   ├── portfolio-cards.tsx - Portfolio summary cards
+│   └── add-portfolio-modal.tsx - Create new portfolio
 ├── investments/ - Investment-specific components
-│   ├── investment-cards.tsx - Portfolio summary cards
+│   ├── investment-cards.tsx - Investment summary cards (legacy)
 │   ├── investment-pie-chart.tsx - Category distribution
 │   ├── portfolio-area-chart.tsx - Growth over time
 │   ├── add-investment-modal.tsx - Create new investment
@@ -105,6 +114,7 @@ src/components/
 
 ### Key Investment Components
 
+- **PortfolioCards**: Shows portfolio cards with total value, investment count, and returns
 - **InvestmentCards**: Shows total portfolio value, investment count, avg return
 - **InvestmentPieChart**: Pie chart by investment_type with percentages
 - **PortfolioAreaChart**: Step area chart showing cumulative initial investments over time
@@ -158,8 +168,9 @@ src/components/
 ## Routing & Pages
 
 - **Router**: TanStack Router with file-based routing
-- **Main Page**: `src/routes/index.tsx` - Dashboard with investment cards and charts
-- **Layout**: 2-column grid (lg screens) with pie chart and area chart
+- **Main Page**: `src/routes/index.tsx` - Dashboard with portfolio cards
+- **Portfolio Detail**: `src/routes/portfolios/$portfolioId.tsx` - Individual portfolio with investments
+- **Investment Detail**: `src/routes/investments/$investmentId.tsx` - Individual investment details
 
 ## Styling & UI
 
@@ -208,6 +219,11 @@ src/components/
 - Mock users are hardcoded - real auth not implemented
 - Environment variable `VITE_DATABASE_URL` required for database connection
 - Charts require data transformation from raw DB results
+- use Field instead of Form, see create investment form
+- don't run the dev server, the user will have it running already
+- use POST for server functions
+- in your queryFn, check to see if it expects a data object: { data: { userId, portfolioId } }
+- use lucide-react for icons
 
 ## Testing
 

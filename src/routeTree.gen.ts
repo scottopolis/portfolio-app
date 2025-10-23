@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PortfoliosPortfolioIdRouteImport } from './routes/portfolios/$portfolioId'
 import { Route as InvestmentsInvestmentIdRouteImport } from './routes/investments/$investmentId'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as DemoNeonRouteImport } from './routes/demo/neon'
@@ -31,6 +32,11 @@ const HomeRoute = HomeRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfoliosPortfolioIdRoute = PortfoliosPortfolioIdRouteImport.update({
+  id: '/portfolios/$portfolioId',
+  path: '/portfolios/$portfolioId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvestmentsInvestmentIdRoute = InvestmentsInvestmentIdRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/demo/neon': typeof DemoNeonRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/investments/$investmentId': typeof InvestmentsInvestmentIdRoute
+  '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/demo/neon': typeof DemoNeonRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/investments/$investmentId': typeof InvestmentsInvestmentIdRoute
+  '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/demo/neon': typeof DemoNeonRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/investments/$investmentId': typeof InvestmentsInvestmentIdRoute
+  '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/demo/neon'
     | '/demo/tanstack-query'
     | '/investments/$investmentId'
+    | '/portfolios/$portfolioId'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/demo/neon'
     | '/demo/tanstack-query'
     | '/investments/$investmentId'
+    | '/portfolios/$portfolioId'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/demo/neon'
     | '/demo/tanstack-query'
     | '/investments/$investmentId'
+    | '/portfolios/$portfolioId'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   DemoNeonRoute: typeof DemoNeonRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
   InvestmentsInvestmentIdRoute: typeof InvestmentsInvestmentIdRoute
+  PortfoliosPortfolioIdRoute: typeof PortfoliosPortfolioIdRoute
   DemoApiNamesRoute: typeof DemoApiNamesRoute
   DemoApiTqTodosRoute: typeof DemoApiTqTodosRoute
   DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolios/$portfolioId': {
+      id: '/portfolios/$portfolioId'
+      path: '/portfolios/$portfolioId'
+      fullPath: '/portfolios/$portfolioId'
+      preLoaderRoute: typeof PortfoliosPortfolioIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/investments/$investmentId': {
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemoNeonRoute: DemoNeonRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
   InvestmentsInvestmentIdRoute: InvestmentsInvestmentIdRoute,
+  PortfoliosPortfolioIdRoute: PortfoliosPortfolioIdRoute,
   DemoApiNamesRoute: DemoApiNamesRoute,
   DemoApiTqTodosRoute: DemoApiTqTodosRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,

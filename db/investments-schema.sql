@@ -10,6 +10,17 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Portfolios table (user-specific)
+CREATE TABLE IF NOT EXISTS portfolios (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, name)
+);
+
 -- Categories table (user-specific)
 CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
@@ -42,7 +53,8 @@ CREATE TABLE IF NOT EXISTS investment_types (
 -- Investments table
 CREATE TABLE IF NOT EXISTS investments (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, -- Legacy column, will be removed after migration
     name VARCHAR(255) NOT NULL,
     description TEXT,
     date_started DATE,
@@ -77,7 +89,9 @@ CREATE TABLE IF NOT EXISTS investment_tags (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id);
+CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id);
+CREATE INDEX IF NOT EXISTS idx_investments_portfolio_id ON investments(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_investments_user_id ON investments(user_id); -- Legacy index
 CREATE INDEX IF NOT EXISTS idx_distributions_investment_id ON distributions(investment_id);
 CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
 CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id);
@@ -95,4 +109,5 @@ $$ language 'plpgsql';
 
 -- Triggers for updated_at
 CREATE OR REPLACE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+CREATE OR REPLACE TRIGGER update_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE OR REPLACE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();

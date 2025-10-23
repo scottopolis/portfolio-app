@@ -2,23 +2,26 @@ import { createServerFn } from '@tanstack/react-start'
 import { getClient } from '@/db'
 import type {
   Investment,
+  Portfolio,
   Distribution,
   Category,
   Tag,
   InvestmentType,
   InvestmentWithDetails,
   CreateInvestmentData,
+  CreatePortfolioData,
   CreateDistributionData,
   CreateCategoryData,
   CreateTagData,
   CreateInvestmentTypeData,
   UpdateInvestmentData,
+  UpdatePortfolioData,
 } from '@/lib/types/investments'
 
 // Track if schema has been initialized to prevent multiple initializations
 let schemaInitialized = false
 
-// Initialize database schema
+// Initialize database schema with migration support
 const initializeSchema = createServerFn({
   method: 'POST',
 }).handler(async () => {
@@ -32,130 +35,270 @@ const initializeSchema = createServerFn({
   }
 
   try {
-    // Check if tables exist first
-    const tablesExist = await client.query(`
+    // Check if portfolios table exists (our migration indicator)
+    const portfoliosExist = await client.query(`
       SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'users'
+      WHERE table_schema = 'public' AND table_name = 'portfolios'
     `)
 
-    if (tablesExist.length > 0) {
-      schemaInitialized = true
-      return { success: true }
+    // Check if investments exist (to determine if migration is needed)
+    const investmentsExist = await client.query(`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'investments'
+    `)
+
+    const needsMigration =
+      investmentsExist.length > 0 && portfoliosExist.length === 0
+
+    if (needsMigration) {
+      console.log('🔄 Migrating existing data to portfolios structure...')
+      await performPortfolioMigration(client)
+    } else {
+      // Fresh installation - create all tables
+      await createFreshSchema(client)
     }
-
-    // Create tables with IF NOT EXISTS
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          password_hash VARCHAR(255) NOT NULL,
-          name VARCHAR(255) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS categories (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name VARCHAR(100) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, name)
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS tags (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name VARCHAR(50) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, name)
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS investment_types (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name VARCHAR(100) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, name)
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS investments (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name VARCHAR(255) NOT NULL,
-          description TEXT,
-          date_started DATE,
-          amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
-          investment_type VARCHAR(100) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS distributions (
-          id SERIAL PRIMARY KEY,
-          investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
-          date DATE NOT NULL,
-          amount DECIMAL(12, 2) NOT NULL,
-          description TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS investment_categories (
-          investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
-          category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-          PRIMARY KEY (investment_id, category_id)
-      )
-    `)
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS investment_tags (
-          investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
-          tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-          PRIMARY KEY (investment_id, tag_id)
-      )
-    `)
-
-    // Create mock users if they don't exist
-    const mockUsers = [
-      { id: 1, name: 'John Doe', email: 'john@example.com' },
-      { id: 2, name: 'Jane Smith', email: 'jane@example.com' },
-      { id: 3, name: 'Bob Johnson', email: 'bob@example.com' },
-    ]
-
-    for (const user of mockUsers) {
-      await client.query(
-        `
-        INSERT INTO users (id, name, email, password_hash)
-        VALUES ($1, $2, $3, 'mock_password_hash')
-        ON CONFLICT (email) DO NOTHING
-      `,
-        [user.id, user.name, user.email],
-      )
-    }
-
-    // Update the sequence to start from ID 10 to avoid conflicts with mock users
-    await client.query(`
-      SELECT setval('users_id_seq', 10, false)
-    `)
 
     schemaInitialized = true
-    return { success: true }
+    return { success: true, migrated: needsMigration }
   } catch (error) {
     console.error('Schema initialization error:', error)
     throw error
   }
 })
+
+// Create fresh schema for new installations
+async function createFreshSchema(client: any) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS portfolios (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, name)
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, name)
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS tags (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, name)
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS investment_types (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, name)
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS investments (
+        id SERIAL PRIMARY KEY,
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        date_started DATE,
+        amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
+        investment_type VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS distributions (
+        id SERIAL PRIMARY KEY,
+        investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
+        date DATE NOT NULL,
+        amount DECIMAL(12, 2) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS investment_categories (
+        investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
+        category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+        PRIMARY KEY (investment_id, category_id)
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS investment_tags (
+        investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
+        tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (investment_id, tag_id)
+    )
+  `)
+
+  // Create indexes
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_investments_portfolio_id ON investments(portfolio_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_distributions_investment_id ON distributions(investment_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_investment_types_user_id ON investment_types(user_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_distributions_date ON distributions(date)`,
+  )
+
+  // Create triggers
+  await client.query(`
+    CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+    END;
+    $$ language 'plpgsql'
+  `)
+
+  await client.query(
+    `CREATE OR REPLACE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
+  )
+  await client.query(
+    `CREATE OR REPLACE TRIGGER update_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
+  )
+  await client.query(
+    `CREATE OR REPLACE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
+  )
+
+  // Create mock users and default portfolios
+  await createMockData(client)
+}
+
+// Perform migration from old structure to new portfolios structure
+async function performPortfolioMigration(client: any) {
+  console.log('Creating portfolios table...')
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS portfolios (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, name)
+    )
+  `)
+
+  console.log('Creating default portfolios for existing users...')
+  await client.query(`
+    INSERT INTO portfolios (user_id, name, description)
+    SELECT DISTINCT user_id, 'My Portfolio', 'Default portfolio for existing investments'
+    FROM investments
+    WHERE user_id IS NOT NULL
+    ON CONFLICT (user_id, name) DO NOTHING
+  `)
+
+  console.log('Adding portfolio_id column to investments...')
+  await client.query(`
+    ALTER TABLE investments 
+    ADD COLUMN IF NOT EXISTS portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE CASCADE
+  `)
+
+  console.log('Migrating existing investments to portfolios...')
+  await client.query(`
+    UPDATE investments 
+    SET portfolio_id = p.id
+    FROM portfolios p
+    WHERE investments.user_id = p.user_id 
+    AND p.name = 'My Portfolio'
+    AND investments.portfolio_id IS NULL
+  `)
+
+  console.log('Creating indexes...')
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_investments_portfolio_id ON investments(portfolio_id)`,
+  )
+
+  console.log('Creating portfolio triggers...')
+  await client.query(
+    `CREATE OR REPLACE TRIGGER update_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
+  )
+
+  console.log('✅ Portfolio migration completed successfully!')
+}
+
+// Create mock users and default data
+async function createMockData(client: any) {
+  const mockUsers = [
+    { id: 1, name: 'John Doe', email: 'john@example.com' },
+    { id: 2, name: 'Jane Smith', email: 'jane@example.com' },
+    { id: 3, name: 'Bob Johnson', email: 'bob@example.com' },
+  ]
+
+  for (const user of mockUsers) {
+    await client.query(
+      `
+      INSERT INTO users (id, name, email, password_hash)
+      VALUES ($1, $2, $3, 'mock_password_hash')
+      ON CONFLICT (email) DO NOTHING
+    `,
+      [user.id, user.name, user.email],
+    )
+
+    // Create default portfolio for each mock user
+    await client.query(
+      `
+      INSERT INTO portfolios (user_id, name, description)
+      VALUES ($1, 'My Portfolio', 'Default portfolio')
+      ON CONFLICT (user_id, name) DO NOTHING
+    `,
+      [user.id],
+    )
+  }
+
+  await client.query(`
+    SELECT setval('users_id_seq', 10, false)
+  `)
+}
 
 // Get all investments for a user
 export const getInvestments = createServerFn({
@@ -185,7 +328,7 @@ export const getInvestments = createServerFn({
       [userId],
     )
 
-    return (result || []) as InvestmentWithDetails[]
+    return result as InvestmentWithDetails[]
   })
 
 // Get single investment with full details
@@ -626,4 +769,213 @@ export const updateInvestment = createServerFn({
       await client.query('ROLLBACK')
       throw error
     }
+  })
+
+// Portfolio functions
+
+// Get all portfolios for a user
+export const getPortfolios = createServerFn({
+  method: 'POST',
+})
+  .inputValidator((userId: number) => userId)
+  .handler(async ({ data: userId }) => {
+    console.log('🚀 getPortfolios server function called with userId:', userId)
+
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    await initializeSchema()
+
+    // First, let's test a simple query to see if portfolios exist
+    const simpleResult = await client.query(
+      'SELECT * FROM portfolios WHERE user_id = $1',
+      [userId],
+    )
+    console.log('🚀 Simple portfolio query result:', simpleResult)
+
+    const result = await client.query(
+      `
+      SELECT p.*,
+        COUNT(i.id) as investment_count,
+        COALESCE(SUM(i.amount), 0) as total_invested,
+        COALESCE(SUM(COALESCE(d.total_distributions, 0)), 0) as total_distributions
+      FROM portfolios p
+      LEFT JOIN investments i ON p.id = i.portfolio_id
+      LEFT JOIN (
+        SELECT investment_id, SUM(amount) as total_distributions
+        FROM distributions
+        GROUP BY investment_id
+      ) d ON i.id = d.investment_id
+      WHERE p.user_id = $1
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `,
+      [userId],
+    )
+
+    const portfolios = result as (Portfolio & {
+      investment_count: number
+      total_invested: number
+      total_distributions: number
+    })[]
+
+    console.log(
+      '🚀 getPortfolios returning:',
+      portfolios.length,
+      'portfolios for userId:',
+      userId,
+    )
+    console.log('🚀 Raw result:', result)
+
+    return portfolios
+  })
+
+// Get single portfolio with investments
+export const getPortfolioWithInvestments = createServerFn({
+  method: 'GET',
+})
+  .inputValidator((data: { userId: number; portfolioId: number }) => data)
+  .handler(async ({ data: { userId, portfolioId } }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    await initializeSchema()
+
+    // Get portfolio
+    const portfolio = await client.query(
+      `
+      SELECT * FROM portfolios
+      WHERE user_id = $1 AND id = $2
+    `,
+      [userId, portfolioId],
+    )
+
+    if (portfolio.length === 0) {
+      throw new Error('Portfolio not found')
+    }
+
+    // Get investments in this portfolio
+    const investments = await client.query(
+      `
+      SELECT
+        i.*,
+        COALESCE(SUM(d.amount), 0) as total_distributions,
+        COALESCE(SUM(d.amount), 0) - i.amount as current_return
+      FROM investments i
+      LEFT JOIN distributions d ON i.id = d.investment_id
+      WHERE i.portfolio_id = $1
+      GROUP BY i.id
+      ORDER BY i.created_at DESC
+    `,
+      [portfolioId],
+    )
+
+    return {
+      ...portfolio[0],
+      investments: investments,
+    } as Portfolio & {
+      investments: InvestmentWithDetails[]
+    }
+  })
+
+// Create portfolio
+export const createPortfolio = createServerFn({
+  method: 'POST',
+})
+  .inputValidator(
+    (data: { userId: number; portfolio: CreatePortfolioData }) => data,
+  )
+  .handler(async ({ data: { userId, portfolio } }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    await initializeSchema()
+
+    const result = await client.query(
+      `
+      INSERT INTO portfolios (user_id, name, description)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `,
+      [userId, portfolio.name, portfolio.description || null],
+    )
+
+    if (result.length === 0) {
+      throw new Error('Failed to create portfolio')
+    }
+
+    return result[0] as Portfolio
+  })
+
+// Update portfolio
+export const updatePortfolio = createServerFn({
+  method: 'POST',
+})
+  .inputValidator(
+    (data: {
+      userId: number
+      portfolioId: number
+      portfolio: UpdatePortfolioData
+    }) => data,
+  )
+  .handler(async ({ data: { userId, portfolioId, portfolio } }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    const result = await client.query(
+      `
+      UPDATE portfolios
+      SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3 AND user_id = $4
+      RETURNING *
+    `,
+      [portfolio.name, portfolio.description || null, portfolioId, userId],
+    )
+
+    if (result.length === 0) {
+      throw new Error('Portfolio not found or update failed')
+    }
+
+    return result[0] as Portfolio
+  })
+
+// Delete portfolio
+export const deletePortfolio = createServerFn({
+  method: 'POST',
+})
+  .inputValidator((data: { userId: number; portfolioId: number }) => data)
+  .handler(async ({ data: { userId, portfolioId } }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    // Check if portfolio has investments
+    const investmentCount = await client.query(
+      'SELECT COUNT(*) as count FROM investments WHERE portfolio_id = $1',
+      [portfolioId],
+    )
+
+    if (investmentCount[0]?.count > 0) {
+      throw new Error('Cannot delete portfolio with existing investments')
+    }
+
+    const result = await client.query(
+      'DELETE FROM portfolios WHERE id = $1 AND user_id = $2 RETURNING *',
+      [portfolioId, userId],
+    )
+
+    if (result.length === 0) {
+      throw new Error('Portfolio not found')
+    }
+
+    return { success: true }
   })
