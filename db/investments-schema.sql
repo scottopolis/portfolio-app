@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS investments (
     date_started DATE,
     amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
     investment_type VARCHAR(100) NOT NULL,
+    has_distributions BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

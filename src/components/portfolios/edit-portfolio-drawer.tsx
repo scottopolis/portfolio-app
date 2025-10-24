@@ -4,34 +4,37 @@ import { Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
-import { EditInvestmentForm } from '@/components/forms/edit-investment-form'
+import { EditPortfolioForm } from '@/components/forms/edit-portfolio-form'
 import { useCurrentUser } from '@/stores/user-store'
-import type { InvestmentWithDetails } from '@/lib/types/investments'
+import type { Portfolio } from '@/lib/types/investments'
 
-interface EditInvestmentDrawerProps {
-  investment: InvestmentWithDetails
+interface EditPortfolioDrawerProps {
+  portfolio: Portfolio
   children?: React.ReactNode
   onSuccess?: () => void
 }
 
-export function EditInvestmentDrawer({
-  investment,
+export function EditPortfolioDrawer({
+  portfolio,
   children,
   onSuccess,
-}: EditInvestmentDrawerProps) {
+}: EditPortfolioDrawerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const currentUser = useCurrentUser()
 
-  const handleSuccess = (updatedInvestment: any) => {
+  if (!currentUser) {
+    return null
+  }
+
+  const handleSuccess = (updatedPortfolio: any) => {
     setIsOpen(false)
-    onSuccess?.()
+    onSuccess?.(updatedPortfolio)
   }
 
   const handleCancel = () => {
@@ -44,23 +47,23 @@ export function EditInvestmentDrawer({
         {children || (
           <Button variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />
-            Edit Investment
+            Edit Portfolio
           </Button>
         )}
       </DrawerTrigger>
       <DrawerContent className="min-h-[90vh]" direction="right">
         <div className="flex flex-col h-full">
           <DrawerHeader className="flex-shrink-0">
-            <DrawerTitle>Edit Investment</DrawerTitle>
+            <DrawerTitle>Edit Portfolio</DrawerTitle>
             <DrawerDescription>
-              Update the details of "{investment.name}"
+              Update the details of "{portfolio.name}"
             </DrawerDescription>
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4">
-            <EditInvestmentForm
-              userId={currentUser?.id || 0}
-              investment={investment}
+            <EditPortfolioForm
+              userId={currentUser.id}
+              portfolio={portfolio}
               onSuccess={handleSuccess}
               onCancel={handleCancel}
             />

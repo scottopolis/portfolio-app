@@ -4,17 +4,9 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -22,19 +14,10 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field'
-import {
-  useCategories,
-  useTags,
-  useUpdateInvestment,
-} from '@/hooks/use-investments'
-import { usePortfolios } from '@/hooks/use-portfolios'
-import type {
-  UpdateInvestmentData,
-  InvestmentWithDetails,
-} from '@/lib/types/investments'
+import { useCategories, useTags } from '@/hooks/use-investments'
+import type { CreateInvestmentData } from '@/lib/types/investments'
 
-const investmentSchema = z.object({
-  portfolio_id: z.number().min(1, 'Portfolio is required'),
+const manualInvestmentSchema = z.object({
   name: z
     .string()
     .min(1, 'Investment name is required')
@@ -57,90 +40,68 @@ const investmentSchema = z.object({
     })
     .min(0.01, 'Initial amount must be greater than 0')
     .max(999999999.99, 'Initial amount is too large'),
-  investment_type: z.string(),
   has_distributions: z.boolean(),
   category_ids: z.array(z.number()).optional(),
   tag_ids: z.array(z.number()).optional(),
 })
 
-type InvestmentFormData = z.infer<typeof investmentSchema>
+type ManualInvestmentFormData = z.infer<typeof manualInvestmentSchema>
 
-interface EditInvestmentFormProps {
+interface ManualInvestmentFormProps {
   userId: number
-  investment: InvestmentWithDetails
-  onSuccess?: (investment: any) => void
+  portfolioId?: number
+  onSubmit: (data: CreateInvestmentData) => void
   onCancel?: () => void
+  isSubmitting?: boolean
 }
 
-export function EditInvestmentForm({
+export function ManualInvestmentForm({
   userId,
-  investment,
-  onSuccess,
+  portfolioId,
+  onSubmit,
   onCancel,
-}: EditInvestmentFormProps) {
+  isSubmitting = false,
+}: ManualInvestmentFormProps) {
   const { data: categories = [] } = useCategories(userId)
   const { data: tags = [] } = useTags(userId)
-  const { data: portfolios = [], isLoading: isLoadingPortfolios } =
-    usePortfolios(userId)
-  const updateInvestmentMutation = useUpdateInvestment()
 
-  const form = useForm<InvestmentFormData>({
-    resolver: zodResolver(investmentSchema),
+  const form = useForm<ManualInvestmentFormData>({
+    resolver: zodResolver(manualInvestmentSchema),
     defaultValues: {
-      portfolio_id: investment.portfolio_id,
-      name: investment.name,
-      description: investment.description || '',
-      date_started:
-        investment.date_started instanceof Date
-          ? investment.date_started.toISOString().split('T')[0]
-          : investment.date_started,
-      amount:
-        typeof investment.amount === 'string'
-          ? parseFloat(investment.amount)
-          : investment.amount,
-      investment_type: investment.investment_type,
-      has_distributions: investment.has_distributions ?? true,
-      category_ids: investment.categories?.map((c) => c.id) || [],
-      tag_ids: investment.tags?.map((t) => t.id) || [],
+      name: '',
+      description: '',
+      date_started: undefined,
+      amount: undefined,
+      has_distributions: true,
+      category_ids: [],
+      tag_ids: [],
     },
     mode: 'onBlur',
   })
 
-  async function onSubmit(data: InvestmentFormData) {
-    try {
-      const investmentData: UpdateInvestmentData = {
-        portfolio_id: data.portfolio_id,
-        name: data.name,
-        description: data.description || '',
-        date_started: data.date_started,
-        amount: data.amount,
-        investment_type: data.investment_type,
-        has_distributions: data.has_distributions,
-        category_ids: data.category_ids?.length ? data.category_ids : undefined,
-        tag_ids: data.tag_ids?.length ? data.tag_ids : undefined,
-      }
-
-      const result = await updateInvestmentMutation.mutateAsync({
-        userId,
-        investmentId: investment.id,
-        ...investmentData,
-      })
-
-      onSuccess?.(result)
-    } catch (error) {
-      console.error('Failed to update investment:', error)
+  async function handleSubmit(data: ManualInvestmentFormData) {
+    if (!portfolioId) {
+      console.error('Portfolio ID is required to create investment')
+      return
     }
+
+    const investmentData: CreateInvestmentData = {
+      portfolio_id: portfolioId,
+      name: data.name,
+      description: data.description || '',
+      date_started: data.date_started,
+      amount: data.amount,
+      investment_type: 'manual',
+      has_distributions: data.has_distributions,
+      category_ids: data.category_ids?.length ? data.category_ids : undefined,
+      tag_ids: data.tag_ids?.length ? data.tag_ids : undefined,
+    }
+
+    onSubmit(investmentData)
   }
 
-  const investmentTypeOptions = [
-    { value: 'manual', label: 'Manual' },
-    { value: 'stock', label: 'Stock' },
-    { value: 'crypto', label: 'Crypto' },
-    { value: 'commodities', label: 'Commodities' },
-  ]
-
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
       {/* Investment Name */}
       <Controller
         name="name"
@@ -185,39 +146,22 @@ export function EditInvestmentForm({
         )}
       />
 
-      {/* Portfolio and Investment Type - Side by Side */}
+      {/* Date Started and Initial Amount - Side by Side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Controller
-          name="portfolio_id"
+          name="date_started"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Portfolio</FieldLabel>
-              <Select
-                name={field.name}
-                value={field.value?.toString()}
-                onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                disabled={isLoadingPortfolios}
-              >
-                <SelectTrigger
-                  id={field.name}
-                  aria-invalid={fieldState.invalid}
-                >
-                  <SelectValue placeholder="Select portfolio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {portfolios.map((portfolio) => (
-                    <SelectItem
-                      key={portfolio.id}
-                      value={portfolio.id.toString()}
-                    >
-                      {portfolio.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FieldLabel htmlFor={field.name}>Start Date</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="date"
+                aria-invalid={fieldState.invalid}
+              />
               <FieldDescription>
-                Which portfolio does this investment belong to?
+                When did you start this investment?
               </FieldDescription>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
@@ -225,33 +169,32 @@ export function EditInvestmentForm({
         />
 
         <Controller
-          name="investment_type"
+          name="amount"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Investment Type</FieldLabel>
-              <Select
-                name={field.name}
-                value={field.value}
-                onValueChange={field.onChange}
-              >
-                <SelectTrigger
+              <FieldLabel htmlFor={field.name}>Amount</FieldLabel>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                  $
+                </div>
+                <Input
+                  {...field}
                   id={field.name}
+                  type="number"
+                  step="0.01"
+                  min="0"
                   aria-invalid={fieldState.invalid}
-                >
-                  <SelectValue placeholder="Select investment type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {investmentTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                What type of investment is this?
-              </FieldDescription>
+                  placeholder="0.00"
+                  className="pl-8"
+                  onChange={(e) => {
+                    const value = e.target.value
+                    field.onChange(value === '' ? undefined : parseFloat(value))
+                  }}
+                  value={field.value ?? ''}
+                />
+              </div>
+              <FieldDescription>How much did you invest?</FieldDescription>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
@@ -281,57 +224,6 @@ export function EditInvestmentForm({
           </Field>
         )}
       />
-
-      {/* Date Started and Initial Amount - Side by Side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Controller
-          name="date_started"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Start Date</FieldLabel>
-              <Input
-                {...field}
-                id={field.name}
-                type="date"
-                aria-invalid={fieldState.invalid}
-              />
-              <FieldDescription>
-                When did you start this investment?
-              </FieldDescription>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-
-        <Controller
-          name="amount"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Initial Amount</FieldLabel>
-              <Input
-                {...field}
-                id={field.name}
-                type="number"
-                step="0.01"
-                min="0"
-                aria-invalid={fieldState.invalid}
-                placeholder="0.00"
-                onChange={(e) => {
-                  const value = e.target.value
-                  field.onChange(value === '' ? undefined : parseFloat(value))
-                }}
-                value={field.value ?? ''}
-              />
-              <FieldDescription>
-                How much did you initially invest?
-              </FieldDescription>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
-      </div>
 
       {/* Categories */}
       {categories.length > 0 && (
@@ -432,10 +324,8 @@ export function EditInvestmentForm({
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={updateInvestmentMutation.isPending}>
-          {updateInvestmentMutation.isPending
-            ? 'Updating...'
-            : 'Update Investment'}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Creating...' : 'Create Investment'}
         </Button>
       </div>
     </form>

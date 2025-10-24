@@ -20,7 +20,7 @@ import type {
 
 // Track if schema has been initialized to prevent multiple initializations
 // Set to false to force re-initialization and run migrations
-let schemaInitialized = false
+let schemaInitialized = false // Set to false to run has_distributions migration
 
 // Initialize database schema with migration support
 const initializeSchema = createServerFn({
@@ -60,7 +60,7 @@ const initializeSchema = createServerFn({
     }
 
     schemaInitialized = true
-    return { success: true, migrated: needsMigration }
+    return { success: true }
   } catch (error) {
     console.error('Schema initialization error:', error)
     throw error
@@ -131,6 +131,7 @@ async function createFreshSchema(client: any) {
         date_started DATE,
         amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
         investment_type VARCHAR(100) NOT NULL,
+        has_distributions BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -347,7 +348,75 @@ export const getInvestments = createServerFn({
     return result as InvestmentWithDetails[]
   })
 
-// Get single investment with full details
+// Get single investment with full details by portfolio
+export const getInvestmentByPortfolio = createServerFn({
+  method: 'GET',
+})
+  .inputValidator((data: { portfolioId: number; investmentId: number }) => data)
+  .handler(async ({ data: { portfolioId, investmentId } }) => {
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+
+    // Get investment by portfolio_id
+    const investment = await client.query(
+      `
+      SELECT
+        i.*,
+        COALESCE(SUM(d.amount), 0) as total_distributions,
+        COALESCE(SUM(d.amount), 0) - i.amount as current_return
+      FROM investments i
+      LEFT JOIN distributions d ON i.id = d.investment_id
+      WHERE i.id = $1 AND i.portfolio_id = $2
+      GROUP BY i.id
+    `,
+      [investmentId, portfolioId],
+    )
+
+    if (investment.length === 0) {
+      throw new Error('Investment not found')
+    }
+
+    // Get categories
+    const categories = await client.query(
+      `
+      SELECT c.* FROM categories c
+      JOIN investment_categories ic ON c.id = ic.category_id
+      WHERE ic.investment_id = $1
+    `,
+      [investmentId],
+    )
+
+    // Get tags
+    const tags = await client.query(
+      `
+      SELECT t.* FROM tags t
+      JOIN investment_tags it ON t.id = it.tag_id
+      WHERE it.investment_id = $1
+    `,
+      [investmentId],
+    )
+
+    // Get distributions
+    const distributions = await client.query(
+      `
+      SELECT * FROM distributions
+      WHERE investment_id = $1
+      ORDER BY date DESC
+    `,
+      [investmentId],
+    )
+
+    return {
+      ...investment[0],
+      categories: categories as Category[],
+      tags: tags as Tag[],
+      distributions: distributions as Distribution[],
+    } as InvestmentWithDetails
+  })
+
+// Get single investment with full details (legacy - by user_id)
 export const getInvestmentWithDetails = createServerFn({
   method: 'GET',
 })
@@ -359,6 +428,8 @@ export const getInvestmentWithDetails = createServerFn({
     }
 
     // Get investment
+    // When userId is 0, it means there's no current user, so we should look for investments with NULL user_id
+    // Otherwise, check for matching user_id
     const investment = await client.query(
       `
       SELECT
@@ -367,10 +438,15 @@ export const getInvestmentWithDetails = createServerFn({
         COALESCE(SUM(d.amount), 0) - i.amount as current_return
       FROM investments i
       LEFT JOIN distributions d ON i.id = d.investment_id
-      WHERE i.user_id = $1 AND i.id = $2
+      WHERE i.id = $1 AND (
+        CASE
+          WHEN $2 = 0 THEN i.user_id IS NULL
+          ELSE i.user_id = $2
+        END
+      )
       GROUP BY i.id
     `,
-      [userId, investmentId],
+      [investmentId, userId],
     )
 
     if (investment.length === 0) {
@@ -443,8 +519,8 @@ export const createInvestment = createServerFn({
     // Insert investment
     const result = await client.query(
       `
-      INSERT INTO investments (portfolio_id, name, description, date_started, amount, investment_type)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO investments (portfolio_id, name, description, date_started, amount, investment_type, has_distributions)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `,
       [
@@ -454,6 +530,7 @@ export const createInvestment = createServerFn({
         data.date_started,
         data.amount,
         data.investment_type,
+        data.has_distributions,
       ],
     )
 
@@ -716,7 +793,126 @@ export const getUsers = createServerFn({
   }[]
 })
 
-// Update investment
+// Update investment by portfolio
+export const updateInvestmentByPortfolio = createServerFn({
+  method: 'POST',
+})
+  .inputValidator(
+    (
+      data: {
+        portfolioId: number
+        investmentId: number
+      } & UpdateInvestmentData,
+    ) => data,
+  )
+  .handler(
+    async ({ data: { portfolioId, investmentId, ...investmentData } }) => {
+      const client = await getClient()
+      if (!client) {
+        throw new Error('Database connection failed')
+      }
+
+      // Start transaction
+      await client.query('BEGIN')
+
+      try {
+        // Build the UPDATE query dynamically
+        const updateFields = []
+        const values = []
+        let paramCount = 3
+
+        updateFields.push(`name = $${paramCount}`)
+        values.push(investmentData.name)
+        paramCount++
+
+        updateFields.push(`description = $${paramCount}`)
+        values.push(investmentData.description)
+        paramCount++
+
+        updateFields.push(`date_started = $${paramCount}`)
+        values.push(investmentData.date_started)
+        paramCount++
+
+        updateFields.push(`amount = $${paramCount}`)
+        values.push(investmentData.amount)
+        paramCount++
+
+        updateFields.push(`investment_type = $${paramCount}`)
+        values.push(investmentData.investment_type)
+        paramCount++
+
+        updateFields.push(`has_distributions = $${paramCount}`)
+        values.push(investmentData.has_distributions)
+        paramCount++
+
+        if (
+          investmentData.portfolio_id !== undefined &&
+          investmentData.portfolio_id !== portfolioId
+        ) {
+          updateFields.push(`portfolio_id = $${paramCount}`)
+          values.push(investmentData.portfolio_id)
+          paramCount++
+        }
+
+        updateFields.push('updated_at = CURRENT_TIMESTAMP')
+
+        const result = await client.query(
+          `UPDATE investments
+         SET ${updateFields.join(', ')}
+         WHERE id = $2 AND portfolio_id = $1
+         RETURNING *`,
+          [portfolioId, investmentId, ...values],
+        )
+
+        if (result.length === 0) {
+          throw new Error(
+            'Investment not found or you do not have permission to update it',
+          )
+        }
+
+        // Clear existing category associations
+        await client.query(
+          'DELETE FROM investment_categories WHERE investment_id = $1',
+          [investmentId],
+        )
+
+        // Clear existing tag associations
+        await client.query(
+          'DELETE FROM investment_tags WHERE investment_id = $1',
+          [investmentId],
+        )
+
+        // Add new category associations
+        if (investmentData.category_ids?.length) {
+          for (const categoryId of investmentData.category_ids) {
+            await client.query(
+              'INSERT INTO investment_categories (investment_id, category_id) VALUES ($1, $2)',
+              [investmentId, categoryId],
+            )
+          }
+        }
+
+        // Add new tag associations
+        if (investmentData.tag_ids?.length) {
+          for (const tagId of investmentData.tag_ids) {
+            await client.query(
+              'INSERT INTO investment_tags (investment_id, tag_id) VALUES ($1, $2)',
+              [investmentId, tagId],
+            )
+          }
+        }
+
+        await client.query('COMMIT')
+
+        return result[0] as Investment
+      } catch (error) {
+        await client.query('ROLLBACK')
+        throw error
+      }
+    },
+  )
+
+// Update investment (legacy - by user_id)
 export const updateInvestment = createServerFn({
   method: 'POST',
 })
@@ -734,23 +930,69 @@ export const updateInvestment = createServerFn({
     await client.query('BEGIN')
 
     try {
+      // Build the UPDATE query dynamically based on whether portfolio_id is provided
+      const updateFields = []
+      const values = []
+      let paramCount = 3
+
+      updateFields.push(`name = $${paramCount}`)
+      values.push(investmentData.name)
+      paramCount++
+
+      updateFields.push(`description = $${paramCount}`)
+      values.push(investmentData.description)
+      paramCount++
+
+      updateFields.push(`date_started = $${paramCount}`)
+      values.push(investmentData.date_started)
+      paramCount++
+
+      updateFields.push(`amount = $${paramCount}`)
+      values.push(investmentData.amount)
+      paramCount++
+
+      updateFields.push(`investment_type = $${paramCount}`)
+      values.push(investmentData.investment_type)
+      paramCount++
+
+      updateFields.push(`has_distributions = $${paramCount}`)
+      values.push(investmentData.has_distributions)
+      paramCount++
+
+      if (investmentData.portfolio_id !== undefined) {
+        updateFields.push(`portfolio_id = $${paramCount}`)
+        values.push(investmentData.portfolio_id)
+        paramCount++
+      }
+
+      updateFields.push('updated_at = CURRENT_TIMESTAMP')
+
       // Update investment
+      // Handle NULL user_id: when userId is 0, match investments with NULL user_id
+      console.log('Executing UPDATE with params:', {
+        userId,
+        investmentId,
+        values,
+      })
+      console.log(
+        'UPDATE query:',
+        `UPDATE investments SET ${updateFields.join(', ')} WHERE id = $2 AND (CASE WHEN $1 = 0 THEN user_id IS NULL ELSE user_id = $1 END)`,
+      )
+
       const result = await client.query(
         `UPDATE investments
-         SET name = $3, description = $4, date_started = $5, amount = $6,
-             investment_type = $7, updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = $1 AND id = $2
+         SET ${updateFields.join(', ')}
+         WHERE id = $2 AND (
+           CASE
+             WHEN $1 = 0 THEN user_id IS NULL
+             ELSE user_id = $1
+           END
+         )
          RETURNING *`,
-        [
-          userId,
-          investmentId,
-          investmentData.name,
-          investmentData.description,
-          investmentData.date_started,
-          investmentData.amount,
-          investmentData.investment_type,
-        ],
+        [userId, investmentId, ...values],
       )
+
+      console.log('UPDATE result length:', result.length)
 
       if (result.length === 0) {
         throw new Error(

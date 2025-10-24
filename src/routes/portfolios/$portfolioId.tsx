@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePortfolioById } from '@/hooks/use-portfolios'
 import { useCurrentUser } from '@/stores/user-store'
 import { InvestmentList } from '@/components/investments/investment-list'
+import { EditPortfolioDrawer } from '@/components/portfolios/edit-portfolio-drawer'
 
 export const Route = createFileRoute('/portfolios/$portfolioId')({
   component: PortfolioDetailPage,
@@ -86,6 +87,7 @@ function PortfolioDetailPage() {
             Back to Portfolios
           </Button>
         </Link>
+        <EditPortfolioDrawer portfolio={portfolio} />
       </div>
 
       {/* Portfolio Overview */}

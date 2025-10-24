@@ -84,10 +84,10 @@ export function PortfolioCards({ onCreatePortfolio }: PortfolioCardsProps) {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">My Portfolios</h1>
-          <p className="text-muted-foreground">
-            Total Value: {formatCurrency(totalPortfolioValue)}
-          </p>
+          <h1 className="text-3xl font-bold">
+            {formatCurrency(totalPortfolioValue)}
+          </h1>
+          <p className="text-muted-foreground">Total value</p>
         </div>
         <AddPortfolioModal onSuccess={onCreatePortfolio} />
       </div>

@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useInvestmentById } from '@/hooks/use-investments'
+import { useInvestmentByPortfolio } from '@/hooks/use-investments'
 import { EditInvestmentDrawer } from '@/components/investments/edit-investment-drawer'
 import { AddDistributionDialog } from '@/components/distributions/add-distribution-dialog'
 
@@ -20,7 +20,7 @@ function InvestmentDetailPage() {
     data: investment,
     isLoading,
     error,
-  } = useInvestmentById(parseInt(investmentId))
+  } = useInvestmentByPortfolio(parseInt(portfolioId), parseInt(investmentId))
 
   if (isLoading) {
     return <InvestmentDetailSkeleton portfolioId={portfolioId} />
@@ -136,16 +136,18 @@ function InvestmentDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    Total Distributions
-                  </h3>
-                  <p className="text-2xl font-semibold text-green-600 dark:text-green-400">
-                    {formatCurrency(investment.total_distributions)}
-                  </p>
+              {investment.has_distributions && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                      Total Distributions
+                    </h3>
+                    <p className="text-2xl font-semibold text-green-600 dark:text-green-400">
+                      {formatCurrency(investment.total_distributions)}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Tags */}
@@ -182,60 +184,62 @@ function InvestmentDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Distributions Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Distributions</CardTitle>
-              <AddDistributionDialog
-                investmentId={investment.id}
-                investmentName={investment.name}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {investment.distributions.length > 0 ? (
-              <div className="space-y-4">
-                {investment.distributions.map((distribution) => (
-                  <div
-                    key={distribution.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div>
-                      <div className="font-semibold">
-                        {formatCurrency(distribution.amount)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDate(distribution.date)}
-                      </div>
-                      {distribution.description && (
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {distribution.description}
+        {/* Distributions Section - Only show if has_distributions is true */}
+        {investment.has_distributions && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Distributions</CardTitle>
+                <AddDistributionDialog
+                  investmentId={investment.id}
+                  investmentName={investment.name}
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {investment.distributions.length > 0 ? (
+                <div className="space-y-4">
+                  {investment.distributions.map((distribution) => (
+                    <div
+                      key={distribution.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
+                      <div>
+                        <div className="font-semibold">
+                          {formatCurrency(distribution.amount)}
                         </div>
-                      )}
+                        <div className="text-sm text-muted-foreground">
+                          {formatDate(distribution.date)}
+                        </div>
+                        {distribution.description && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {distribution.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="border-t pt-4 mt-4">
+                    <div className="flex justify-between items-center font-semibold">
+                      <span>Total Distributions:</span>
+                      <span className="text-green-600 dark:text-green-400">
+                        {formatCurrency(investment.total_distributions)}
+                      </span>
                     </div>
                   </div>
-                ))}
-
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex justify-between items-center font-semibold">
-                    <span>Total Distributions:</span>
-                    <span className="text-green-600 dark:text-green-400">
-                      {formatCurrency(investment.total_distributions)}
-                    </span>
-                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No distributions yet</p>
-                <p className="text-sm mt-1">
-                  Add your first distribution to track your returns
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No distributions yet</p>
+                  <p className="text-sm mt-1">
+                    Add your first distribution to track your returns
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

@@ -24,6 +24,7 @@ export interface Investment {
   date_started?: string
   amount: number
   investment_type: string
+  has_distributions: boolean
   created_at: string
   updated_at: string
 }
@@ -76,6 +77,7 @@ export interface CreateInvestmentData {
   date_started?: string
   amount: number
   investment_type: string
+  has_distributions: boolean
   category_ids?: number[]
   tag_ids?: number[]
 }
@@ -105,11 +107,13 @@ export interface UpdatePortfolioData {
 }
 
 export interface UpdateInvestmentData {
+  portfolio_id?: number
   name: string
   description: string
   date_started?: string
   amount: number
   investment_type: string
+  has_distributions: boolean
   category_ids?: number[]
   tag_ids?: number[]
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getInvestments,
   getInvestmentWithDetails,
+  getInvestmentByPortfolio,
   createInvestment,
   updateInvestment,
   createDistribution,
@@ -110,6 +111,17 @@ export function useInvestmentById(investmentId: number) {
   })
 }
 
+export function useInvestmentByPortfolio(portfolioId: number, investmentId: number) {
+  return useQuery({
+    queryKey: ['portfolios', portfolioId, 'investments', investmentId],
+    queryFn: () =>
+      getInvestmentByPortfolio({
+        data: { portfolioId, investmentId },
+      }),
+    enabled: !!portfolioId && !!investmentId,
+  })
+}
+
 export function useCreateInvestment() {
   const queryClient = useQueryClient()
 
@@ -124,7 +136,12 @@ export function useCreateInvestment() {
 
       // Invalidate portfolio-specific investment queries
       queryClient.invalidateQueries({
-        queryKey: ['portfolios', variables.userId, variables.portfolio_id, 'investments'],
+        queryKey: [
+          'portfolios',
+          variables.userId,
+          variables.portfolio_id,
+          'investments',
+        ],
       })
 
       // Invalidate all portfolio queries to update counts/totals
@@ -257,7 +274,7 @@ export function useInvestmentsByPortfolio(userId: number, portfolioId: number) {
     queryFn: async () => {
       const { getPortfolioWithInvestments } = await import('@/data/investments')
       const portfolio = await getPortfolioWithInvestments({
-        data: { userId, portfolioId }
+        data: { userId, portfolioId },
       })
       return portfolio.investments
     },
