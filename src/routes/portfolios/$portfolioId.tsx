@@ -156,7 +156,7 @@ function PortfolioDetailPage() {
 function PortfolioDetailSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mt-4">
         <Skeleton className="h-9 w-40" />
       </div>
       <Card>

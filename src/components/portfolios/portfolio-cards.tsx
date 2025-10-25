@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { IconPlus, IconFolder } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 
@@ -11,8 +12,9 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePortfolios } from '@/hooks/use-portfolios'
-import { useCurrentUser } from '@/stores/user-store'
+import { useCurrentUser, useUserStore } from '@/stores/user-store'
 import { AddPortfolioModal } from './add-portfolio-modal'
+import { updateUserStockPrices } from '@/data/investments'
 import type { Portfolio } from '@/lib/types/investments'
 import { Badge } from '../ui/badge'
 
@@ -21,13 +23,32 @@ interface PortfolioCardsProps {
 }
 
 export function PortfolioCards({ onCreatePortfolio }: PortfolioCardsProps) {
+  const isClient = typeof window !== 'undefined'
   const currentUser = useCurrentUser()
+  const isInitialized = useUserStore((state) => state.isInitialized)
 
   const {
     data: portfolios,
     isLoading,
     error,
-  } = usePortfolios(currentUser?.id || 1) // Use user ID 1 (John Doe) as fallback
+  } = usePortfolios(currentUser?.id || 1, isInitialized)
+
+  // Prevent SSR rendering - only render on client
+  if (!isClient) {
+    return null
+  }
+
+  // Update stock prices for user when component mounts
+  React.useEffect(() => {
+    if (currentUser?.id && portfolios && portfolios.length > 0) {
+      // Fire-and-forget: update stock prices in the background
+      updateUserStockPrices({ data: { userId: currentUser.id } }).catch(
+        (err) => {
+          console.error(`Failed to update stock prices:`, err)
+        },
+      )
+    }
+  }, [currentUser?.id, portfolios?.length]) // Only re-run if user or number of portfolios changes
 
   if (!currentUser) {
     return (

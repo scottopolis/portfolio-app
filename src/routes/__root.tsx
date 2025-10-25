@@ -49,7 +49,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 function RootComponent() {
   return (
     <RootDocument>
-      <SidebarProvider>
+      <div className="px-6">
+        <Outlet />
+      </div>
+
+      {/* <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
           <SiteHeader />
@@ -57,7 +61,7 @@ function RootComponent() {
             <Outlet />
           </div>
         </SidebarInset>
-      </SidebarProvider>
+      </SidebarProvider> */}
     </RootDocument>
   )
 }

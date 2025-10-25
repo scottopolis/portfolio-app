@@ -10,8 +10,8 @@ import {
   FieldError,
   FieldLabel,
 } from '@/components/ui/field'
-import { searchStockSymbols, getStockQuote  } from '@/data/stocks'
-import type {StockSymbol} from '@/data/stocks';
+import { searchStockSymbols, getStockQuote } from '@/data/stocks'
+import type { StockSymbol } from '@/data/stocks'
 import { Loader2 } from 'lucide-react'
 
 const stockSchema = z.object({
@@ -78,11 +78,9 @@ export function StockInput({
         console.log('Searching for:', searchQuery)
         setIsSearching(true)
         try {
-          console.log('Calling searchStockSymbols...')
           const results = await searchStockSymbols({
             data: { keywords: searchQuery },
           })
-          console.log('Search results:', results)
           setSuggestions(results)
           setShowSuggestions(true)
           setSelectedIndex(-1)
@@ -319,7 +317,11 @@ export function StockInput({
               Total Investment Value
             </span>
             <span className="text-2xl font-bold">
-              ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              $
+              {totalValue.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-2">

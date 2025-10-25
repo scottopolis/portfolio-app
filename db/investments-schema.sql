@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS investments (
     amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
     investment_type VARCHAR(100) NOT NULL,
     has_distributions BOOLEAN NOT NULL DEFAULT true,
+    stock_symbol VARCHAR(20),
+    stock_quantity DECIMAL(18, 8),
+    current_stock_price DECIMAL(18, 8),
+    stock_price_updated_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -98,6 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
 CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id);
 CREATE INDEX IF NOT EXISTS idx_investment_types_user_id ON investment_types(user_id);
 CREATE INDEX IF NOT EXISTS idx_distributions_date ON distributions(date);
+CREATE INDEX IF NOT EXISTS idx_investments_stock_symbol ON investments(stock_symbol);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

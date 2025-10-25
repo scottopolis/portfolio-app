@@ -16,6 +16,9 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  define: {
+    'process.env.DEV_USER_ID': JSON.stringify(process.env.DEV_USER_ID),
+  },
 })
 
 export default config

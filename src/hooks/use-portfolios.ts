@@ -12,21 +12,28 @@ import type {
 } from '@/lib/types/investments'
 
 // Get all portfolios for a user
-export function usePortfolios(userId: number) {
+export function usePortfolios(userId: number, isInitialized = true) {
+  const isClient = typeof window !== 'undefined'
+  console.log('📦 usePortfolios called with userId:', userId, 'isInitialized:', isInitialized, 'isClient:', isClient)
   return useQuery({
     queryKey: ['portfolios', userId],
     queryFn: async () => {
+      console.log('📦 usePortfolios queryFn executing for userId:', userId)
       try {
-        const result = await getPortfolios({ data: userId })
+        const result = await getPortfolios()
+        console.log('📦 usePortfolios queryFn result type:', typeof result)
+        console.log('📦 usePortfolios queryFn result isArray:', Array.isArray(result))
+        console.log('📦 usePortfolios queryFn result:', result)
+        console.log('📦 usePortfolios queryFn result length:', result?.length)
         return result
       } catch (error) {
         console.error('🚨 getPortfolios queryFn error:', error)
         throw error
       }
     },
-    enabled: !!userId,
-    staleTime: 0, // Always refetch
-    gcTime: 0, // Don't cache
+    enabled: !!userId && isInitialized && isClient,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   })
 }
 
@@ -35,7 +42,7 @@ export function usePortfolioById(userId: number, portfolioId: number) {
   return useQuery({
     queryKey: ['portfolio', userId, portfolioId],
     queryFn: () =>
-      getPortfolioWithInvestments({ data: { userId, portfolioId } }),
+      getPortfolioWithInvestments({ data: { portfolioId } }),
     enabled: !!userId && !!portfolioId,
   })
 }
@@ -46,7 +53,7 @@ export function useCreatePortfolio(userId: number) {
 
   return useMutation({
     mutationFn: (portfolio: CreatePortfolioData) =>
-      createPortfolio({ data: { userId, portfolio } }),
+      createPortfolio({ data: { portfolio } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolios', userId] })
     },
@@ -59,7 +66,7 @@ export function useUpdatePortfolio(userId: number, portfolioId: number) {
 
   return useMutation({
     mutationFn: (portfolio: UpdatePortfolioData) =>
-      updatePortfolio({ data: { userId, portfolioId, portfolio } }),
+      updatePortfolio({ data: { portfolioId, portfolio } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolios', userId] })
       queryClient.invalidateQueries({
@@ -75,7 +82,7 @@ export function useDeletePortfolio(userId: number) {
 
   return useMutation({
     mutationFn: (portfolioId: number) =>
-      deletePortfolio({ data: { userId, portfolioId } }),
+      deletePortfolio({ data: { portfolioId } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolios', userId] })
     },

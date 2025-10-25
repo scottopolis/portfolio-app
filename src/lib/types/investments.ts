@@ -25,6 +25,10 @@ export interface Investment {
   amount: number
   investment_type: string
   has_distributions: boolean
+  stock_symbol?: string
+  stock_quantity?: number
+  current_stock_price?: number
+  stock_price_updated_at?: string
   created_at: string
   updated_at: string
 }
@@ -78,6 +82,8 @@ export interface CreateInvestmentData {
   amount: number
   investment_type: string
   has_distributions: boolean
+  stock_symbol?: string
+  stock_quantity?: number
   category_ids?: number[]
   tag_ids?: number[]
 }
@@ -114,6 +120,8 @@ export interface UpdateInvestmentData {
   amount: number
   investment_type: string
   has_distributions: boolean
+  stock_symbol?: string
+  stock_quantity?: number
   category_ids?: number[]
   tag_ids?: number[]
 }

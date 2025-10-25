@@ -51,7 +51,7 @@ export const investmentTypeKeys = {
 // Query options for use with ensureQueryData
 export const investmentsQueryOptions = (userId: number) => ({
   queryKey: investmentKeys.list(userId),
-  queryFn: () => getInvestments({ data: userId }),
+  queryFn: () => getInvestments(),
   enabled: !!userId && userId > 0,
 })
 
@@ -60,25 +60,25 @@ export const investmentDetailsQueryOptions = (
   investmentId: number,
 ) => ({
   queryKey: investmentKeys.detail(userId, investmentId),
-  queryFn: () => getInvestmentWithDetails({ data: { userId, investmentId } }),
+  queryFn: () => getInvestmentWithDetails({ data: { investmentId } }),
   enabled: !!userId && !!investmentId,
 })
 
 export const categoriesQueryOptions = (userId: number) => ({
   queryKey: categoryKeys.list(userId),
-  queryFn: () => getCategories({ data: userId }),
+  queryFn: () => getCategories(),
   enabled: !!userId,
 })
 
 export const tagsQueryOptions = (userId: number) => ({
   queryKey: tagKeys.list(userId),
-  queryFn: () => getTags({ data: userId }),
+  queryFn: () => getTags(),
   enabled: !!userId,
 })
 
 export const investmentTypesQueryOptions = (userId: number) => ({
   queryKey: investmentTypeKeys.list(userId),
-  queryFn: () => getInvestmentTypes({ data: userId }),
+  queryFn: () => getInvestmentTypes(),
   enabled: !!userId,
 })
 
@@ -86,7 +86,7 @@ export const investmentTypesQueryOptions = (userId: number) => ({
 export function useInvestments(userId: number) {
   return useQuery({
     queryKey: investmentKeys.list(userId),
-    queryFn: () => getInvestments({ data: userId }),
+    queryFn: () => getInvestments(),
     enabled: !!userId && userId > 0,
   })
 }
@@ -94,7 +94,7 @@ export function useInvestments(userId: number) {
 export function useInvestmentDetails(userId: number, investmentId: number) {
   return useQuery({
     queryKey: investmentKeys.detail(userId, investmentId),
-    queryFn: () => getInvestmentWithDetails({ data: { userId, investmentId } }),
+    queryFn: () => getInvestmentWithDetails({ data: { investmentId } }),
     enabled: !!userId && !!investmentId,
   })
 }
@@ -105,13 +105,16 @@ export function useInvestmentById(investmentId: number) {
     queryKey: investmentKeys.detail(currentUser?.id || 0, investmentId),
     queryFn: () =>
       getInvestmentWithDetails({
-        data: { userId: currentUser!.id, investmentId },
+        data: { investmentId },
       }),
     enabled: !!currentUser?.id && !!investmentId,
   })
 }
 
-export function useInvestmentByPortfolio(portfolioId: number, investmentId: number) {
+export function useInvestmentByPortfolio(
+  portfolioId: number,
+  investmentId: number,
+) {
   return useQuery({
     queryKey: ['portfolios', portfolioId, 'investments', investmentId],
     queryFn: () =>
@@ -126,8 +129,10 @@ export function useCreateInvestment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { userId: number } & CreateInvestmentData) =>
-      createInvestment({ data }),
+    mutationFn: (data: CreateInvestmentData & { userId: number }) => {
+      const { userId, ...investmentData } = data
+      return createInvestment({ data: investmentData })
+    },
     onSuccess: (_, variables) => {
       // Invalidate investments list
       queryClient.invalidateQueries({
@@ -157,8 +162,11 @@ export function useUpdateInvestment() {
 
   return useMutation({
     mutationFn: (
-      data: { userId: number; investmentId: number } & UpdateInvestmentData,
-    ) => updateInvestment({ data }),
+      data: UpdateInvestmentData & { userId: number; investmentId: number },
+    ) => {
+      const { userId, ...updateData } = data
+      return updateInvestment({ data: updateData })
+    },
     onSuccess: (_, variables) => {
       // Invalidate investments list
       queryClient.invalidateQueries({
@@ -180,8 +188,10 @@ export function useCreateDistribution() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { userId: number } & CreateDistributionData) =>
-      createDistribution({ data }),
+    mutationFn: (data: CreateDistributionData & { userId: number }) => {
+      const { userId, ...distributionData } = data
+      return createDistribution({ data: distributionData })
+    },
     onSuccess: (_, variables) => {
       const { userId, investment_id } = variables
 
@@ -202,7 +212,7 @@ export function useCreateDistribution() {
 export function useCategories(userId: number) {
   return useQuery({
     queryKey: categoryKeys.list(userId),
-    queryFn: () => getCategories({ data: userId }),
+    queryFn: () => getCategories(),
     enabled: !!userId,
   })
 }
@@ -211,8 +221,10 @@ export function useCreateCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { userId: number } & CreateCategoryData) =>
-      createCategory({ data }),
+    mutationFn: (data: CreateCategoryData & { userId: number }) => {
+      const { userId, ...categoryData } = data
+      return createCategory({ data: categoryData })
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: categoryKeys.list(variables.userId),
@@ -225,7 +237,7 @@ export function useCreateCategory() {
 export function useTags(userId: number) {
   return useQuery({
     queryKey: tagKeys.list(userId),
-    queryFn: () => getTags({ data: userId }),
+    queryFn: () => getTags(),
     enabled: !!userId,
   })
 }
@@ -234,8 +246,10 @@ export function useCreateTag() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { userId: number } & CreateTagData) =>
-      createTag({ data }),
+    mutationFn: (data: CreateTagData & { userId: number }) => {
+      const { userId, ...tagData } = data
+      return createTag({ data: tagData })
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: tagKeys.list(variables.userId),
@@ -248,7 +262,7 @@ export function useCreateTag() {
 export function useInvestmentTypes(userId: number) {
   return useQuery({
     queryKey: investmentTypeKeys.list(userId),
-    queryFn: () => getInvestmentTypes({ data: userId }),
+    queryFn: () => getInvestmentTypes(),
     enabled: !!userId,
   })
 }
@@ -257,8 +271,10 @@ export function useCreateInvestmentType() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { userId: number } & CreateInvestmentTypeData) =>
-      createInvestmentType({ data }),
+    mutationFn: (data: CreateInvestmentTypeData & { userId: number }) => {
+      const { userId, ...typeData } = data
+      return createInvestmentType({ data: typeData })
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: investmentTypeKeys.list(variables.userId),
@@ -274,7 +290,7 @@ export function useInvestmentsByPortfolio(userId: number, portfolioId: number) {
     queryFn: async () => {
       const { getPortfolioWithInvestments } = await import('@/data/investments')
       const portfolio = await getPortfolioWithInvestments({
-        data: { userId, portfolioId },
+        data: { portfolioId },
       })
       return portfolio.investments
     },
