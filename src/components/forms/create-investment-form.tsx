@@ -49,7 +49,7 @@ export function CreateInvestmentForm({
             portfolio_id: portfolioId,
             name: `${typeSpecificData.ticker} - ${typeSpecificData.shares} shares`,
             description: `Stock: ${typeSpecificData.ticker}, Shares: ${typeSpecificData.shares}, Purchase Price: $${typeSpecificData.purchase_price}`,
-            date_started: typeSpecificData.purchase_date,
+            date_started: new Date().toISOString().split('T')[0],
             amount: typeSpecificData.shares * typeSpecificData.purchase_price,
             investment_type: 'stock',
             has_distributions: false,

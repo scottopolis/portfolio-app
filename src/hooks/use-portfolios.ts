@@ -14,7 +14,6 @@ import type {
 // Get all portfolios for a user
 export function usePortfolios(userId: number, isInitialized = true) {
   const isClient = typeof window !== 'undefined'
-  console.log('📦 usePortfolios called with userId:', userId, 'isInitialized:', isInitialized, 'isClient:', isClient)
   return useQuery({
     queryKey: ['portfolios', userId],
     queryFn: async () => {
@@ -22,7 +21,10 @@ export function usePortfolios(userId: number, isInitialized = true) {
       try {
         const result = await getPortfolios()
         console.log('📦 usePortfolios queryFn result type:', typeof result)
-        console.log('📦 usePortfolios queryFn result isArray:', Array.isArray(result))
+        console.log(
+          '📦 usePortfolios queryFn result isArray:',
+          Array.isArray(result),
+        )
         console.log('📦 usePortfolios queryFn result:', result)
         console.log('📦 usePortfolios queryFn result length:', result?.length)
         return result
@@ -41,8 +43,7 @@ export function usePortfolios(userId: number, isInitialized = true) {
 export function usePortfolioById(userId: number, portfolioId: number) {
   return useQuery({
     queryKey: ['portfolio', userId, portfolioId],
-    queryFn: () =>
-      getPortfolioWithInvestments({ data: { portfolioId } }),
+    queryFn: () => getPortfolioWithInvestments({ data: { portfolioId } }),
     enabled: !!userId && !!portfolioId,
   })
 }

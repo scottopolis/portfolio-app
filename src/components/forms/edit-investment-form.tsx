@@ -84,6 +84,10 @@ export function EditInvestmentForm({
     usePortfolios(userId)
   const updateInvestmentMutation = useUpdateInvestment()
 
+  if (!investment) {
+    return null
+  }
+
   const form = useForm<InvestmentFormData>({
     resolver: zodResolver(investmentSchema),
     defaultValues: {
@@ -121,9 +125,8 @@ export function EditInvestmentForm({
       }
 
       const result = await updateInvestmentMutation.mutateAsync({
-        userId,
         investmentId: investment.id,
-        ...investmentData,
+        investmentData,
       })
 
       onSuccess?.(result)

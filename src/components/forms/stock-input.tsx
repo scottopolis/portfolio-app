@@ -53,6 +53,7 @@ export function StockInput({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [isFetchingPrice, setIsFetchingPrice] = useState(false)
+  const [priceFetchedFor, setPriceFetchedFor] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -116,27 +117,30 @@ export function StockInput({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const fetchStockPrice = async (ticker: string) => {
+    if (!ticker || priceFetchedFor === ticker) return
+
+    setIsFetchingPrice(true)
+    try {
+      const quote = await getStockQuote({
+        data: { symbol: ticker },
+      })
+
+      form.setValue('purchase_price', quote.price, { shouldValidate: true })
+      setPriceFetchedFor(ticker)
+    } catch (error) {
+      console.error('Error fetching stock quote:', error)
+    } finally {
+      setIsFetchingPrice(false)
+    }
+  }
+
   const handleSelectSuggestion = async (symbol: StockSymbol) => {
     form.setValue('ticker', symbol.symbol, { shouldValidate: true })
     setSearchQuery(symbol.symbol)
     setShowSuggestions(false)
     setSuggestions([])
-
-    // Fetch the current price for the selected stock
-    setIsFetchingPrice(true)
-    try {
-      const quote = await getStockQuote({
-        data: { symbol: symbol.symbol },
-      })
-
-      // Auto-populate the purchase price with the current price
-      form.setValue('purchase_price', quote.price, { shouldValidate: true })
-    } catch (error) {
-      console.error('Error fetching stock quote:', error)
-      // Don't block the user if price fetching fails
-    } finally {
-      setIsFetchingPrice(false)
-    }
+    setPriceFetchedFor(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -252,6 +256,12 @@ export function StockInput({
                 min="0"
                 aria-invalid={fieldState.invalid}
                 placeholder="0.000"
+                onFocus={() => {
+                  const ticker = form.getValues('ticker')
+                  if (ticker) {
+                    fetchStockPrice(ticker)
+                  }
+                }}
                 onChange={(e) => {
                   const value = e.target.value
                   field.onChange(value === '' ? undefined : parseFloat(value))
