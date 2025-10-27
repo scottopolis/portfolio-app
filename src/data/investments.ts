@@ -843,6 +843,63 @@ export const updateInvestmentByPortfolio = createServerFn({
   }
 })
 
+// Delete investment
+export const deleteInvestment = createServerFn({
+  method: 'POST',
+}).handler(async ({ data: { investmentId } }) => {
+  const userId = await getCurrentUserId()
+  const client = await getClient()
+  if (!client) {
+    throw new Error('Database connection failed')
+  }
+  await setSessionUser(userId)
+
+  try {
+    await client.query('BEGIN')
+
+    // Delete related records first (due to foreign key constraints)
+    await client.query(
+      'DELETE FROM investment_categories WHERE investment_id = $1',
+      [investmentId],
+    )
+
+    await client.query('DELETE FROM investment_tags WHERE investment_id = $1', [
+      investmentId,
+    ])
+
+    await client.query('DELETE FROM distributions WHERE investment_id = $1', [
+      investmentId,
+    ])
+
+    await client.query(
+      'DELETE FROM investment_value_history WHERE investment_id = $1',
+      [investmentId],
+    )
+
+    // Delete the investment itself
+    const result = await client.query(
+      `DELETE FROM investments i
+       USING portfolios p
+       WHERE i.id = $2 AND i.portfolio_id = p.id AND p.user_id = $1
+       RETURNING i.id`,
+      [userId, investmentId],
+    )
+
+    if (result.length === 0) {
+      throw new Error(
+        'Investment not found or you do not have permission to delete it',
+      )
+    }
+
+    await client.query('COMMIT')
+
+    return { success: true, id: result[0].id }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  }
+})
+
 // Create distribution
 export const createDistribution = createServerFn({
   method: 'POST',

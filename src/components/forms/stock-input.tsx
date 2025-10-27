@@ -189,7 +189,9 @@ export function StockInput({
                 onChange={(e) => {
                   const value = e.target.value.toUpperCase()
                   field.onChange(value)
-                  setSearchQuery(value)
+                  if (value.trim().length > 1) {
+                    setSearchQuery(value)
+                  }
                 }}
                 onKeyDown={handleKeyDown}
                 onFocus={() => {

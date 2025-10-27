@@ -12,21 +12,13 @@ import type {
 } from '@/lib/types/investments'
 
 // Get all portfolios for a user
-export function usePortfolios(userId: number, isInitialized = true) {
+export function usePortfolios(userId?: number, isInitialized = true) {
   const isClient = typeof window !== 'undefined'
   return useQuery({
     queryKey: ['portfolios', userId],
     queryFn: async () => {
-      console.log('📦 usePortfolios queryFn executing for userId:', userId)
       try {
         const result = await getPortfolios()
-        console.log('📦 usePortfolios queryFn result type:', typeof result)
-        console.log(
-          '📦 usePortfolios queryFn result isArray:',
-          Array.isArray(result),
-        )
-        console.log('📦 usePortfolios queryFn result:', result)
-        console.log('📦 usePortfolios queryFn result length:', result?.length)
         return result
       } catch (error) {
         console.error('🚨 getPortfolios queryFn error:', error)

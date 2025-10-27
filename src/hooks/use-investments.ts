@@ -5,6 +5,7 @@ import {
   getInvestmentByPortfolio,
   createInvestment,
   updateInvestment,
+  deleteInvestment,
   createDistribution,
   getCategories,
   createCategory,
@@ -12,6 +13,7 @@ import {
   createTag,
   getInvestmentTypes,
   createInvestmentType,
+  saveUserSnapshot,
 } from '@/data/investments'
 import { useCurrentUser } from '@/stores/user-store'
 import type {
@@ -133,7 +135,10 @@ export function useCreateInvestment() {
       const { userId, ...investmentData } = data
       return createInvestment({ data: investmentData })
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
+      // Save snapshot for today to update charts
+      await saveUserSnapshot({ data: { date: new Date().toISOString().split('T')[0] } })
+
       // Invalidate investments list
       queryClient.invalidateQueries({
         queryKey: investmentKeys.list(variables.userId),
@@ -152,6 +157,11 @@ export function useCreateInvestment() {
       // Invalidate all portfolio queries to update counts/totals
       queryClient.invalidateQueries({
         queryKey: ['portfolios', variables.userId],
+      })
+
+      // Invalidate user snapshots to update charts
+      queryClient.invalidateQueries({
+        queryKey: ['user-snapshots'],
       })
     },
   })
@@ -179,6 +189,43 @@ export function useUpdateInvestment() {
           variables.userId,
           variables.investmentId,
         ),
+      })
+    },
+  })
+}
+
+export function useDeleteInvestment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: { userId: number; investmentId: number }) => {
+      return deleteInvestment({ data: { investmentId: data.investmentId } })
+    },
+    onSuccess: async (_, variables) => {
+      // Save snapshot for today to update charts
+      await saveUserSnapshot({ data: { date: new Date().toISOString().split('T')[0] } })
+
+      // Invalidate investments list
+      queryClient.invalidateQueries({
+        queryKey: investmentKeys.list(variables.userId),
+      })
+
+      // Invalidate specific investment details
+      queryClient.invalidateQueries({
+        queryKey: investmentKeys.detail(
+          variables.userId,
+          variables.investmentId,
+        ),
+      })
+
+      // Invalidate all portfolio queries to update counts/totals
+      queryClient.invalidateQueries({
+        queryKey: ['portfolios', variables.userId],
+      })
+
+      // Invalidate user snapshots to update charts
+      queryClient.invalidateQueries({
+        queryKey: ['user-snapshots'],
       })
     },
   })

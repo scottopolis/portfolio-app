@@ -10,6 +10,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from '@/components/ui/item'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePortfolios } from '@/hooks/use-portfolios'
 import { useCurrentUser, useUserStore } from '@/stores/user-store'
@@ -18,11 +29,11 @@ import { updateUserStockPrices } from '@/data/investments'
 import type { Portfolio } from '@/lib/types/investments'
 import { Badge } from '../ui/badge'
 
-interface PortfolioCardsProps {
+interface PortfolioListProps {
   onCreatePortfolio?: () => void
 }
 
-export function PortfolioCards({ onCreatePortfolio }: PortfolioCardsProps) {
+export function PortfolioList({ onCreatePortfolio }: PortfolioListProps) {
   const isClient = typeof window !== 'undefined'
   const currentUser = useCurrentUser()
   const isInitialized = useUserStore((state) => state.isInitialized)
@@ -82,7 +93,7 @@ export function PortfolioCards({ onCreatePortfolio }: PortfolioCardsProps) {
 
   // Show loading state only if we don't have data yet
   if (isLoading) {
-    return <PortfolioCardsLoading />
+    return <PortfolioListLoading />
   }
 
   const formatCurrency = (amount: number) => {
@@ -93,98 +104,56 @@ export function PortfolioCards({ onCreatePortfolio }: PortfolioCardsProps) {
     }).format(amount)
   }
 
-  const totalPortfolioValue =
-    portfolios?.reduce((total, portfolio) => {
-      const invested = Number(portfolio.total_invested) || 0
-      const distributions = Number(portfolio.total_distributions) || 0
-      return total + invested + distributions
-    }, 0) || 0
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {formatCurrency(totalPortfolioValue)}
-          </h1>
-          <p className="text-muted-foreground">Total value</p>
-        </div>
+      <div className="flex justify-end">
         <AddPortfolioModal onSuccess={onCreatePortfolio} />
       </div>
-
-      {/* Portfolio Cards */}
-      <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
-        {portfolios?.map((portfolio) => (
-          <PortfolioCard key={portfolio.id} portfolio={portfolio} />
-        ))}
-      </div>
+      <ItemGroup>
+        {portfolios?.map((portfolio, index) => {
+          const totalValue =
+            Number(portfolio.total_invested) +
+            Number(portfolio.total_distributions)
+          return (
+            <React.Fragment key={portfolio.id}>
+              <Link
+                to="/portfolios/$portfolioId"
+                params={{ portfolioId: portfolio.id.toString() }}
+              >
+                <Item>
+                  <ItemMedia>
+                    <Avatar>
+                      <AvatarFallback className="bg-primary/10">
+                        <IconFolder className="size-5 text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </ItemMedia>
+                  <ItemContent className="gap-1">
+                    <ItemTitle>{portfolio.name}</ItemTitle>
+                    <ItemDescription>
+                      {portfolio.investment_count}{' '}
+                      {portfolio.investment_count === 1
+                        ? 'investment'
+                        : 'investments'}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <div className="font-medium tabular-nums">
+                      {formatCurrency(totalValue)}
+                    </div>
+                  </ItemActions>
+                </Item>
+              </Link>
+              {index !== portfolios.length - 1 && <ItemSeparator />}
+            </React.Fragment>
+          )
+        })}
+      </ItemGroup>
     </div>
   )
 }
 
-function PortfolioCard({
-  portfolio,
-}: {
-  portfolio: Portfolio & {
-    investment_count: number
-    total_invested: number
-    total_distributions: number
-  }
-}) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount)
-  }
-
-  const totalValue =
-    Number(portfolio.total_invested) + Number(portfolio.total_distributions)
-
-  return (
-    <Link
-      to="/portfolios/$portfolioId"
-      params={{ portfolioId: portfolio.id.toString() }}
-      className="flex h-full"
-    >
-      <Card className="@container/card hover:shadow-md transition-shadow cursor-pointer flex flex-col w-full">
-        <CardHeader>
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <IconFolder className="size-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <CardTitle className="text-lg font-semibold truncate">
-                {portfolio.name}
-              </CardTitle>
-              {portfolio.description && (
-                <CardDescription className="text-sm mt-1 line-clamp-2">
-                  {portfolio.description}
-                </CardDescription>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-2 text-sm mt-auto">
-          <div className="flex justify-between items-center w-full">
-            <span className="text-muted-foreground">Investments:</span>
-            <Badge variant="secondary">{portfolio.investment_count}</Badge>
-          </div>
-          <div className="flex justify-between items-center w-full">
-            <span className="text-muted-foreground">Total Value:</span>
-            <span className="font-medium tabular-nums">
-              {formatCurrency(totalValue)}
-            </span>
-          </div>
-        </CardFooter>
-      </Card>
-    </Link>
-  )
-}
-
-function PortfolioCardsLoading() {
+function PortfolioListLoading() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">

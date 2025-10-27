@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 import * as z from 'zod'
@@ -13,6 +14,14 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Field,
   FieldContent,
   FieldDescription,
@@ -26,6 +35,7 @@ import {
   useCategories,
   useTags,
   useUpdateInvestment,
+  useDeleteInvestment,
 } from '@/hooks/use-investments'
 import { usePortfolios } from '@/hooks/use-portfolios'
 import type {
@@ -78,11 +88,13 @@ export function EditInvestmentForm({
   onSuccess,
   onCancel,
 }: EditInvestmentFormProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const { data: categories = [] } = useCategories(userId)
   const { data: tags = [] } = useTags(userId)
   const { data: portfolios = [], isLoading: isLoadingPortfolios } =
     usePortfolios(userId)
   const updateInvestmentMutation = useUpdateInvestment()
+  const deleteInvestmentMutation = useDeleteInvestment()
 
   if (!investment) {
     return null
@@ -132,6 +144,20 @@ export function EditInvestmentForm({
       onSuccess?.(result)
     } catch (error) {
       console.error('Failed to update investment:', error)
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteInvestmentMutation.mutateAsync({
+        userId,
+        investmentId: investment.id,
+      })
+
+      setShowDeleteDialog(false)
+      onSuccess?.({ deleted: true })
+    } catch (error) {
+      console.error('Failed to delete investment:', error)
     }
   }
 
@@ -429,18 +455,62 @@ export function EditInvestmentForm({
       )}
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-3 pt-6">
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-        )}
-        <Button type="submit" disabled={updateInvestmentMutation.isPending}>
-          {updateInvestmentMutation.isPending
-            ? 'Updating...'
-            : 'Update Investment'}
+      <div className="flex justify-between items-center gap-3 pt-6 border-t">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowDeleteDialog(true)}
+          className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+        >
+          Delete Investment
         </Button>
+        <div className="flex gap-3">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" disabled={updateInvestmentMutation.isPending}>
+            {updateInvestmentMutation.isPending
+              ? 'Updating...'
+              : 'Update Investment'}
+          </Button>
+        </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Investment?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{investment.name}"? This action
+              cannot be undone. All associated distributions and history will be
+              permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={deleteInvestmentMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteInvestmentMutation.isPending}
+            >
+              {deleteInvestmentMutation.isPending
+                ? 'Deleting...'
+                : 'Delete Investment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

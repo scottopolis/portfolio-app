@@ -14,6 +14,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from '@/components/ui/item'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useInvestmentsByPortfolio } from '@/hooks/use-investments'
 import { useCurrentUser } from '@/stores/user-store'
 import { AddInvestmentModal } from './add-investment-modal'
@@ -90,9 +91,7 @@ export function InvestmentList({
     <div className="space-y-6">
       {/* Portfolio Total and Add Investment Button */}
       <div className="flex justify-between items-center">
-        <div>
-          <p className="text-4xl font-bold">{formatCurrency(portfolioTotal)}</p>
-        </div>
+        <div></div>
         <AddInvestmentModal onSuccess={onCreateInvestment} />
       </div>
 
@@ -141,27 +140,24 @@ function InvestmentItem({
     <Link
       to="/portfolios/$portfolioId/investments/$investmentId"
       params={{ portfolioId, investmentId: investment.id.toString() }}
-      className="w-full"
     >
-      <Item className="hover:bg-muted/50 transition-colors cursor-pointer">
+      <Item>
         <ItemMedia>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <DollarSignIcon className="h-5 w-5 text-primary" />
-          </div>
+          <Avatar>
+            <AvatarFallback className="bg-primary/10">
+              <DollarSignIcon className="size-5 text-primary" />
+            </AvatarFallback>
+          </Avatar>
         </ItemMedia>
         <ItemContent className="gap-1">
-          <ItemTitle className="text-base">{investment.name}</ItemTitle>
-          <ItemDescription className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              {getInvestmentTypeLabel(investment.investment_type)}
-            </Badge>
+          <ItemTitle>{investment.name}</ItemTitle>
+          <ItemDescription>
+            {getInvestmentTypeLabel(investment.investment_type)}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
-          <div className="text-right">
-            <div className="text-sm font-medium tabular-nums">
-              {formatCurrency(investment.amount)}
-            </div>
+          <div className="font-medium tabular-nums">
+            {formatCurrency(investment.amount)}
           </div>
         </ItemActions>
       </Item>

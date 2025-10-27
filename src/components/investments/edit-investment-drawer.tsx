@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Edit } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -28,9 +29,19 @@ export function EditInvestmentDrawer({
 }: EditInvestmentDrawerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const currentUser = useCurrentUser()
+  const navigate = useNavigate()
 
   const handleSuccess = (updatedInvestment: any) => {
     setIsOpen(false)
+    
+    // If investment was deleted, navigate to portfolio page
+    if (updatedInvestment?.deleted) {
+      navigate({
+        to: '/portfolios/$portfolioId',
+        params: { portfolioId: investment.portfolio_id.toString() },
+      })
+    }
+    
     onSuccess?.()
   }
 
@@ -49,7 +60,7 @@ export function EditInvestmentDrawer({
         )}
       </DrawerTrigger>
       <DrawerContent className="min-h-[90vh]" direction="right">
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full overflow-y-auto">
           <DrawerHeader className="flex-shrink-0">
             <DrawerTitle>Edit Investment</DrawerTitle>
             <DrawerDescription>
