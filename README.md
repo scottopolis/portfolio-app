@@ -1,4 +1,16 @@
-Welcome to your new TanStack app!
+# Portfolio Tracker
+
+A comprehensive portfolio and net worth tracking application for managing all your investments in one place. Track stocks, crypto, real estate, syndications, funds, and other assets with beautiful charts, detailed notes, and distribution tracking.
+
+## Features
+
+- **Multi-Asset Support**: Track stocks, crypto, real estate, syndications, funds, and custom investment types
+- **Portfolio Organization**: Organize investments into multiple portfolios to separate different strategies
+- **Automatic Stock Pricing**: Real-time stock price updates via Alpha Vantage API
+- **Distribution Tracking**: Track dividends, returns, and other profit distributions
+- **Beautiful Visualizations**: Interactive charts showing portfolio growth and asset distribution
+- **Historical Snapshots**: Daily snapshots of portfolio values for trend analysis
+- **Notes & Categories**: Add detailed notes, categories, and tags to your investments
 
 # Getting Started
 
