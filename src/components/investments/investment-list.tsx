@@ -177,9 +177,7 @@ function InvestmentListLoading() {
             <ItemContent className="gap-1">
               <Skeleton className="h-5 w-32" />
               <div className="flex items-center gap-2">
-                <Skeleton className="h-4 w-16 rounded-full" />
-                <Skeleton className="h-3 w-1" />
-                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-16 mt-1" />
               </div>
             </ItemContent>
             <ItemActions>

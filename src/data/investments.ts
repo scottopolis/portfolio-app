@@ -18,6 +18,7 @@ import type {
   CreateInvestmentTypeData,
   UpdateInvestmentData,
   UpdatePortfolioData,
+  UpdateUserData,
 } from '@/lib/types/investments'
 
 // Track if schema has been initialized to prevent multiple initializations
@@ -1118,6 +1119,40 @@ export const getUsers = createServerFn({
 
   return result as { id: number; name: string; email: string }[]
 })
+
+// Update user
+export const updateUser = createServerFn({
+  method: 'POST',
+})
+  .inputValidator((data: { userData: UpdateUserData }) => data)
+  .handler(async ({ data }) => {
+    const userId = await getCurrentUserId()
+    const client = await getClient()
+    if (!client) {
+      throw new Error('Database connection failed')
+    }
+    await setSessionUser(userId)
+
+    const result = await client.query(
+      `UPDATE users
+       SET name = $2, email = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, name, email, created_at, updated_at`,
+      [userId, data.userData.name, data.userData.email],
+    )
+
+    if (result.length === 0) {
+      throw new Error('User not found')
+    }
+
+    return result[0] as {
+      id: number
+      name: string
+      email: string
+      created_at: string
+      updated_at: string
+    }
+  })
 
 // Portfolio functions
 

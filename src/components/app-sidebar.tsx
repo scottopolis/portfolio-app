@@ -6,6 +6,7 @@ import {
   Network,
   SquareFunction,
   StickyNote,
+  User,
 } from 'lucide-react'
 
 import { NavMain } from '@/components/nav-main'
@@ -26,6 +27,11 @@ const data = {
       title: 'Dashboard',
       url: '/',
       icon: Home,
+    },
+    {
+      title: 'Account',
+      url: '/account',
+      icon: User,
     },
   ],
 }

@@ -6,6 +6,8 @@ export interface User {
   id: number
   name: string
   email: string
+  created_at?: string
+  updated_at?: string
 }
 
 interface UserState {
@@ -54,6 +56,7 @@ export const useUserStore = create<UserState>()(
             id: user.id,
             name: user.name,
             email: user.email,
+            created_at: user.created_at,
           }))
 
           // Check if VITE_DEV_USER_ID env var is set
@@ -98,6 +101,8 @@ export const useUserStore = create<UserState>()(
             id: newUser.id,
             name: newUser.name,
             email: newUser.email,
+            created_at: newUser.created_at,
+            updated_at: newUser.updated_at,
           }
 
           // Add the new user to the existing list immediately
@@ -119,6 +124,7 @@ export const useUserStore = create<UserState>()(
             id: user.id,
             name: user.name,
             email: user.email,
+            created_at: user.created_at,
           }))
 
           set({ users })

@@ -125,3 +125,8 @@ export interface UpdateInvestmentData {
   category_ids?: number[]
   tag_ids?: number[]
 }
+
+export interface UpdateUserData {
+  name: string
+  email: string
+}

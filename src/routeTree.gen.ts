@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortfoliosPortfolioIdRouteImport } from './routes/portfolios/$portfolioId'
 import { Route as PortfoliosPortfolioIdInvestmentsInvestmentIdRouteImport } from './routes/portfolios_.$portfolioId_.investments_.$investmentId'
@@ -17,6 +18,11 @@ import { Route as PortfoliosPortfolioIdInvestmentsInvestmentIdRouteImport } from
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -38,12 +44,14 @@ const PortfoliosPortfolioIdInvestmentsInvestmentIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/home': typeof HomeRoute
   '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/portfolios/$portfolioId/investments/$investmentId': typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/home': typeof HomeRoute
   '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/portfolios/$portfolioId/investments/$investmentId': typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
@@ -51,6 +59,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/home': typeof HomeRoute
   '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/portfolios_/$portfolioId_/investments_/$investmentId': typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
@@ -59,18 +68,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/home'
     | '/portfolios/$portfolioId'
     | '/portfolios/$portfolioId/investments/$investmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/home'
     | '/portfolios/$portfolioId'
     | '/portfolios/$portfolioId/investments/$investmentId'
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/home'
     | '/portfolios/$portfolioId'
     | '/portfolios_/$portfolioId_/investments_/$investmentId'
@@ -78,6 +90,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   HomeRoute: typeof HomeRoute
   PortfoliosPortfolioIdRoute: typeof PortfoliosPortfolioIdRoute
   PortfoliosPortfolioIdInvestmentsInvestmentIdRoute: typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
@@ -90,6 +103,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -118,6 +138,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   HomeRoute: HomeRoute,
   PortfoliosPortfolioIdRoute: PortfoliosPortfolioIdRoute,
   PortfoliosPortfolioIdInvestmentsInvestmentIdRoute:
