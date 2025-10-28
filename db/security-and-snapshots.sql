@@ -363,7 +363,7 @@ BEGIN
     SELECT 
         COALESCE(SUM(
             CASE 
-                WHEN i.investment_type = 'stocks' 
+                WHEN i.investment_type = 'stock' 
                     AND i.current_stock_price IS NOT NULL 
                     AND i.stock_quantity IS NOT NULL
                 THEN i.stock_quantity * i.current_stock_price
@@ -397,7 +397,7 @@ BEGIN
     SELECT 
         COALESCE(SUM(
             CASE 
-                WHEN i.investment_type = 'stocks' 
+                WHEN i.investment_type = 'stock' 
                     AND i.current_stock_price IS NOT NULL 
                     AND i.stock_quantity IS NOT NULL
                 THEN i.stock_quantity * i.current_stock_price

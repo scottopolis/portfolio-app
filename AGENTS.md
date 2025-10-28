@@ -99,7 +99,7 @@ users (id, email, password_hash, name, timestamps)
 
 ### Stock Investments
 
-- **Stock Fields**: Investments with `investment_type = 'stocks'` can have:
+- **Stock Fields**: Investments with `investment_type = 'stock'` can have:
   - `stock_symbol` (VARCHAR) - Ticker symbol (e.g., "AAPL", "TSLA")
   - `stock_quantity` (DECIMAL) - Number of shares owned
   - `current_stock_price` (DECIMAL) - Latest price per share from Alpha Vantage API

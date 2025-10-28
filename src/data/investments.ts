@@ -45,30 +45,7 @@ const initializeSchema = createServerFn({
   }
 
   try {
-    // Check if portfolios table exists (our migration indicator)
-    const portfoliosExist = await client.query(`
-      SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'portfolios'
-    `)
-
-    // Check if investments exist (to determine if migration is needed)
-    const investmentsExist = await client.query(`
-      SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'investments'
-    `)
-
-    const needsMigration =
-      investmentsExist.length > 0 && portfoliosExist.length === 0
-
-    if (needsMigration) {
-      await performPortfolioMigration(client)
-    } else {
-      // Fresh installation - create all tables
-      await createFreshSchema(client)
-    }
-
-    // Run stock columns migration (for existing databases)
-    await addStockColumnsMigration(client)
+    await createFreshSchema(client)
 
     schemaInitialized = true
     return { success: true }
@@ -225,146 +202,6 @@ async function createFreshSchema(client: any) {
   await client.query(
     `CREATE OR REPLACE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
   )
-
-  // Create mock users and default portfolios
-  await createMockData(client)
-}
-
-// Perform migration from old structure to new portfolios structure
-async function performPortfolioMigration(client: any) {
-  console.log('Creating portfolios table...')
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS portfolios (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, name)
-    )
-  `)
-
-  console.log('Creating default portfolios for existing users...')
-  await client.query(`
-    INSERT INTO portfolios (user_id, name, description)
-    SELECT DISTINCT user_id, 'My Portfolio', 'Default portfolio for existing investments'
-    FROM investments
-    WHERE user_id IS NOT NULL
-    ON CONFLICT (user_id, name) DO NOTHING
-  `)
-
-  console.log('Adding portfolio_id column to investments...')
-  await client.query(`
-    ALTER TABLE investments
-    ADD COLUMN IF NOT EXISTS portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE CASCADE
-  `)
-
-  console.log('Migrating existing investments to portfolios...')
-  await client.query(`
-    UPDATE investments
-    SET portfolio_id = p.id
-    FROM portfolios p
-    WHERE investments.user_id = p.user_id
-    AND p.name = 'My Portfolio'
-    AND investments.portfolio_id IS NULL
-  `)
-
-  console.log('Making user_id nullable for new investments...')
-  // Check if user_id exists before trying to alter it
-  const userIdColumn = await client.query(`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_name = 'investments' AND column_name = 'user_id'
-  `)
-
-  if (userIdColumn.length > 0) {
-    await client.query(`
-      ALTER TABLE investments
-      ALTER COLUMN user_id DROP NOT NULL
-    `)
-  }
-
-  console.log('Creating indexes...')
-  await client.query(
-    `CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id)`,
-  )
-  await client.query(
-    `CREATE INDEX IF NOT EXISTS idx_investments_portfolio_id ON investments(portfolio_id)`,
-  )
-
-  console.log('Creating portfolio triggers...')
-  await client.query(
-    `CREATE OR REPLACE TRIGGER update_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
-  )
-
-  console.log('✅ Portfolio migration completed successfully!')
-}
-
-// Add stock columns to investments table
-async function addStockColumnsMigration(client: any) {
-  console.log('🔄 Checking for stock columns...')
-
-  // Check if stock columns exist
-  const stockSymbolColumn = await client.query(`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_name = 'investments' AND column_name = 'stock_symbol'
-  `)
-
-  if (stockSymbolColumn.length === 0) {
-    console.log('Adding stock columns to investments table...')
-
-    await client.query(`
-      ALTER TABLE investments
-      ADD COLUMN IF NOT EXISTS stock_symbol VARCHAR(20),
-      ADD COLUMN IF NOT EXISTS stock_quantity DECIMAL(18, 8),
-      ADD COLUMN IF NOT EXISTS current_stock_price DECIMAL(18, 8),
-      ADD COLUMN IF NOT EXISTS stock_price_updated_at TIMESTAMP
-    `)
-
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS idx_investments_stock_symbol ON investments(stock_symbol)`,
-    )
-
-    console.log('✅ Stock columns added successfully!')
-  } else {
-    console.log('✅ Stock columns already exist')
-  }
-}
-
-// Create mock users and default data
-async function createMockData(client: any) {
-  const mockUsers = [
-    { id: 1, name: 'John Doe', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com' },
-    { id: 3, name: 'Bob Johnson', email: 'bob@example.com' },
-  ]
-
-  for (const user of mockUsers) {
-    await client.query(
-      `
-      INSERT INTO users (id, name, email, password_hash)
-      VALUES ($1, $2, $3, 'mock_password_hash')
-      ON CONFLICT (email) DO NOTHING
-    `,
-      [user.id, user.name, user.email],
-    )
-
-    // Create default portfolio for each mock user
-    await client.query(
-      `
-      INSERT INTO portfolios (user_id, name, description)
-      VALUES ($1, 'My Portfolio', 'Default portfolio')
-      ON CONFLICT (user_id, name) DO NOTHING
-    `,
-      [user.id],
-    )
-  }
-
-  await client.query(`
-    SELECT setval('users_id_seq', 10, false)
-  `)
 }
 
 // Get all investments for a user
@@ -554,9 +391,11 @@ export const createInvestment = createServerFn({
           investment_type,
           has_distributions,
           stock_symbol,
-          stock_quantity
+          stock_quantity,
+          current_stock_price,
+          stock_price_updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `,
       [
@@ -569,6 +408,8 @@ export const createInvestment = createServerFn({
         investmentData.has_distributions,
         investmentData.stock_symbol || null,
         investmentData.stock_quantity || null,
+        investmentData.current_stock_price || null,
+        investmentData.current_stock_price ? new Date() : null,
       ],
     )
 
@@ -1182,7 +1023,7 @@ export const getPortfolios = createServerFn({
         COUNT(i.id) as investment_count,
         COALESCE(SUM(
           CASE
-            WHEN i.investment_type = 'stocks' AND i.current_stock_price IS NOT NULL AND i.stock_quantity IS NOT NULL
+            WHEN i.investment_type = 'stock' AND i.current_stock_price IS NOT NULL AND i.stock_quantity IS NOT NULL
             THEN i.stock_quantity * i.current_stock_price
             ELSE i.amount
           END
@@ -1260,7 +1101,7 @@ export const getPortfolioWithInvestments = createServerFn({
         COALESCE(SUM(d.amount), 0) as total_distributions,
         COALESCE(SUM(d.amount), 0) - (
           CASE
-            WHEN i.investment_type = 'stocks' AND i.current_stock_price IS NOT NULL AND i.stock_quantity IS NOT NULL
+            WHEN i.investment_type = 'stock' AND i.current_stock_price IS NOT NULL AND i.stock_quantity IS NOT NULL
             THEN i.stock_quantity * i.current_stock_price
             ELSE i.amount
           END
@@ -1393,7 +1234,7 @@ export const updateUserStockPrices = createServerFn({
          FROM investments i
          JOIN portfolios p ON i.portfolio_id = p.id
          WHERE p.user_id = $1
-           AND i.investment_type = 'stocks'
+           AND i.investment_type = 'stock'
            AND i.stock_symbol IS NOT NULL
            AND (
              i.stock_price_updated_at IS NULL

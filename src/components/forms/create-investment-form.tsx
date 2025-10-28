@@ -53,6 +53,9 @@ export function CreateInvestmentForm({
             amount: typeSpecificData.shares * typeSpecificData.purchase_price,
             investment_type: 'stock',
             has_distributions: false,
+            stock_symbol: typeSpecificData.ticker,
+            stock_quantity: typeSpecificData.shares,
+            current_stock_price: typeSpecificData.purchase_price,
           }
           break
         case 'crypto':

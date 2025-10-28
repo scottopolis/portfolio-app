@@ -9,17 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HomeRouteImport } from './routes/home'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortfoliosPortfolioIdRouteImport } from './routes/portfolios/$portfolioId'
 import { Route as PortfoliosPortfolioIdInvestmentsInvestmentIdRouteImport } from './routes/portfolios_.$portfolioId_.investments_.$investmentId'
 
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AccountRoute = AccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -45,14 +39,12 @@ const PortfoliosPortfolioIdInvestmentsInvestmentIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/home': typeof HomeRoute
   '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/portfolios/$portfolioId/investments/$investmentId': typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/home': typeof HomeRoute
   '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/portfolios/$portfolioId/investments/$investmentId': typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
 }
@@ -60,7 +52,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/home': typeof HomeRoute
   '/portfolios/$portfolioId': typeof PortfoliosPortfolioIdRoute
   '/portfolios_/$portfolioId_/investments_/$investmentId': typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
 }
@@ -69,21 +60,18 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
-    | '/home'
     | '/portfolios/$portfolioId'
     | '/portfolios/$portfolioId/investments/$investmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
-    | '/home'
     | '/portfolios/$portfolioId'
     | '/portfolios/$portfolioId/investments/$investmentId'
   id:
     | '__root__'
     | '/'
     | '/account'
-    | '/home'
     | '/portfolios/$portfolioId'
     | '/portfolios_/$portfolioId_/investments_/$investmentId'
   fileRoutesById: FileRoutesById
@@ -91,20 +79,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
-  HomeRoute: typeof HomeRoute
   PortfoliosPortfolioIdRoute: typeof PortfoliosPortfolioIdRoute
   PortfoliosPortfolioIdInvestmentsInvestmentIdRoute: typeof PortfoliosPortfolioIdInvestmentsInvestmentIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/account': {
       id: '/account'
       path: '/account'
@@ -139,7 +119,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
-  HomeRoute: HomeRoute,
   PortfoliosPortfolioIdRoute: PortfoliosPortfolioIdRoute,
   PortfoliosPortfolioIdInvestmentsInvestmentIdRoute:
     PortfoliosPortfolioIdInvestmentsInvestmentIdRoute,
