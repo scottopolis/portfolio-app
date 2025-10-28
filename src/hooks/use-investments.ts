@@ -172,12 +172,15 @@ export function useUpdateInvestment() {
 
   return useMutation({
     mutationFn: (
-      data: UpdateInvestmentData & { userId: number; investmentId: number },
+      data: UpdateInvestmentData & { userId: number; investmentId: number; portfolio_id?: number },
     ) => {
-      const { userId, ...updateData } = data
-      return updateInvestment({ data: updateData })
+      const { userId, portfolio_id, investmentId, ...investmentData } = data
+      return updateInvestment({ data: { investmentId, investmentData } })
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (result, variables) => {
+      // Save snapshot for today to update charts
+      await saveUserSnapshot({ data: { date: new Date().toISOString().split('T')[0] } })
+
       // Invalidate investments list
       queryClient.invalidateQueries({
         queryKey: investmentKeys.list(variables.userId),
@@ -189,6 +192,28 @@ export function useUpdateInvestment() {
           variables.userId,
           variables.investmentId,
         ),
+      })
+
+      // Invalidate portfolio-specific investment queries
+      const portfolioId = variables.portfolio_id || result.portfolio_id
+      if (portfolioId) {
+        queryClient.invalidateQueries({
+          queryKey: [
+            'portfolios',
+            portfolioId,
+            'investments',
+          ],
+        })
+      }
+
+      // Invalidate all portfolio queries to update counts/totals
+      queryClient.invalidateQueries({
+        queryKey: ['portfolios', variables.userId],
+      })
+
+      // Invalidate user snapshots to update charts
+      queryClient.invalidateQueries({
+        queryKey: ['user-snapshots'],
       })
     },
   })

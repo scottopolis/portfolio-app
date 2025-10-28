@@ -551,16 +551,96 @@ $$ LANGUAGE plpgsql;
 -- WHERE tablename IN ('portfolios', 'investments', 'distributions', 'categories', 'tags');
 
 -- ============================================================================
+-- AUTOMATIC SNAPSHOT TRIGGERS
+-- ============================================================================
+
+-- Trigger function to save portfolio snapshot after investment changes
+CREATE OR REPLACE FUNCTION trigger_save_portfolio_snapshot()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Save snapshot for the affected portfolio
+    PERFORM save_portfolio_snapshot(COALESCE(NEW.portfolio_id, OLD.portfolio_id));
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger on investments table
+DROP TRIGGER IF EXISTS investments_snapshot_trigger ON investments;
+CREATE TRIGGER investments_snapshot_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON investments
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_save_portfolio_snapshot();
+
+-- Trigger function to save portfolio snapshot after distribution changes
+CREATE OR REPLACE FUNCTION trigger_save_portfolio_snapshot_from_distribution()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_portfolio_id INTEGER;
+BEGIN
+    -- Get portfolio_id from the investment
+    SELECT portfolio_id INTO v_portfolio_id
+    FROM investments
+    WHERE id = COALESCE(NEW.investment_id, OLD.investment_id);
+    
+    -- Save snapshot for the portfolio
+    IF v_portfolio_id IS NOT NULL THEN
+        PERFORM save_portfolio_snapshot(v_portfolio_id);
+    END IF;
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger on distributions table
+DROP TRIGGER IF EXISTS distributions_snapshot_trigger ON distributions;
+CREATE TRIGGER distributions_snapshot_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON distributions
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_save_portfolio_snapshot_from_distribution();
+
+-- Trigger function to save user snapshot after portfolio snapshot changes
+CREATE OR REPLACE FUNCTION trigger_save_user_snapshot()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_user_id INTEGER;
+BEGIN
+    -- Get user_id from the portfolio
+    SELECT user_id INTO v_user_id
+    FROM portfolios
+    WHERE id = NEW.portfolio_id;
+    
+    -- Save user snapshot
+    IF v_user_id IS NOT NULL THEN
+        PERFORM save_user_snapshot(v_user_id);
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger on portfolio_daily_snapshots table
+DROP TRIGGER IF EXISTS portfolio_snapshots_user_trigger ON portfolio_daily_snapshots;
+CREATE TRIGGER portfolio_snapshots_user_trigger
+    AFTER INSERT OR UPDATE ON portfolio_daily_snapshots
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_save_user_snapshot();
+
+-- ============================================================================
 -- USAGE EXAMPLES
 -- ============================================================================
 
--- To save today's snapshot for all portfolios and users:
+-- Snapshots are now saved automatically via triggers when:
+-- - Investments are created, updated, or deleted
+-- - Distributions are created, updated, or deleted
+-- - Portfolio snapshots are saved (triggers user snapshot)
+
+-- To manually save today's snapshot for all portfolios and users:
 -- SELECT * FROM save_all_snapshots();
 
--- To save a specific portfolio snapshot:
+-- To manually save a specific portfolio snapshot:
 -- SELECT save_portfolio_snapshot(1);
 
--- To save a specific user snapshot:
+-- To manually save a specific user snapshot:
 -- SELECT save_user_snapshot(1);
 
 -- To query portfolio history:

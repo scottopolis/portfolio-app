@@ -124,7 +124,9 @@ export function EditInvestmentForm({
 
   async function onSubmit(data: InvestmentFormData) {
     try {
-      const investmentData: UpdateInvestmentData = {
+      const result = await updateInvestmentMutation.mutateAsync({
+        userId,
+        investmentId: investment.id,
         portfolio_id: data.portfolio_id,
         name: data.name,
         description: data.description || '',
@@ -134,11 +136,6 @@ export function EditInvestmentForm({
         has_distributions: data.has_distributions,
         category_ids: data.category_ids?.length ? data.category_ids : undefined,
         tag_ids: data.tag_ids?.length ? data.tag_ids : undefined,
-      }
-
-      const result = await updateInvestmentMutation.mutateAsync({
-        investmentId: investment.id,
-        investmentData,
       })
 
       onSuccess?.(result)

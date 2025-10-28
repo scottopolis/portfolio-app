@@ -78,16 +78,23 @@ users (id, email, password_hash, name, timestamps)
   - `portfolio_daily_snapshots` - Daily snapshots of each portfolio's total value, investments, distributions
   - `user_daily_snapshots` - Daily aggregate snapshots across all user portfolios
   - `investment_value_history` - Optional per-investment value tracking
+- **Automatic Snapshots**: PostgreSQL triggers automatically save snapshots when data changes
+  - **Investment/Distribution changes** → triggers `save_portfolio_snapshot()` for affected portfolio
+  - **Portfolio snapshot saved** → triggers `save_user_snapshot()` for portfolio owner
+  - **Cascade flow**: Investment update → Portfolio snapshot → User snapshot (all automatic)
+  - **Triggers**: Defined in `db/security-and-snapshots.sql` and `src/data/investments.ts` schema initialization
 - **Snapshot Functions**: Computed via PostgreSQL functions in `db/security-and-snapshots.sql`
   - `save_portfolio_snapshot(portfolio_id, date)` - Save portfolio snapshot for specific date
   - `save_user_snapshot(user_id, date)` - Save user aggregate snapshot
   - `save_all_snapshots(date)` - Save all portfolio and user snapshots (cron job)
+  - `compute_portfolio_snapshot(portfolio_id)` - Calculate current portfolio values
+  - `compute_user_snapshot(user_id)` - Calculate current user aggregate values
 - **Server Functions**: Exposed via `src/data/investments.ts`
   - `getPortfolioSnapshots()` - Fetch historical data for charts
   - `getUserSnapshots()` - Fetch user aggregate history
-  - `savePortfolioSnapshot()` - Trigger snapshot save
-  - `saveUserSnapshot()` - Trigger user snapshot save
-  - `saveAllSnapshots()` - Admin/cron endpoint
+  - `savePortfolioSnapshot()` - Manually trigger snapshot save (rarely needed due to triggers)
+  - `saveUserSnapshot()` - Manually trigger user snapshot save (rarely needed due to triggers)
+  - `saveAllSnapshots()` - Admin/cron endpoint for batch snapshot generation
 
 ### Investment Types
 
@@ -284,9 +291,12 @@ Functions without auth (admin/dev/public):
 ### Data Management
 
 - **Library**: TanStack Query
-- **Query Keys**: Defined in `src/hooks/use-investments.ts`
+- **Query Keys**: Defined in `src/hooks/use-investments.ts` and `src/hooks/use-portfolios.ts`
 - **Mutations**: Create/update investments, distributions, categories, tags
 - **Cache Invalidation**: Automatic on mutations
+  - All mutations must invalidate related queries (investments, portfolios, snapshots)
+  - Investment updates must invalidate: investment list, investment detail, portfolio queries, and snapshots
+  - Mutation variables must be passed flat to hooks (not nested in extra objects)
 
 ## Routing & Pages
 

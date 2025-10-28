@@ -202,6 +202,269 @@ async function createFreshSchema(client: any) {
   await client.query(
     `CREATE OR REPLACE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column()`,
   )
+
+  // Create snapshot tables
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS portfolio_daily_snapshots (
+        portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        snapshot_date DATE NOT NULL,
+        total_value DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        total_invested DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        total_distributions DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        investment_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (portfolio_id, snapshot_date)
+    )
+  `)
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS user_daily_snapshots (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        snapshot_date DATE NOT NULL,
+        total_value DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        total_invested DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        total_distributions DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        portfolio_count INTEGER NOT NULL DEFAULT 0,
+        investment_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, snapshot_date)
+    )
+  `)
+
+  // Create snapshot computation functions
+  await client.query(`DROP FUNCTION IF EXISTS compute_portfolio_snapshot(INTEGER)`)
+  await client.query(`
+    CREATE OR REPLACE FUNCTION compute_portfolio_snapshot(p_portfolio_id INTEGER)
+    RETURNS TABLE (
+        total_value DECIMAL(12, 2),
+        total_invested DECIMAL(12, 2),
+        total_distributions DECIMAL(12, 2),
+        investment_count BIGINT
+    ) AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT
+            COALESCE(SUM(
+                CASE 
+                    WHEN i.stock_symbol IS NOT NULL AND i.current_stock_price IS NOT NULL 
+                    THEN i.stock_quantity * i.current_stock_price
+                    ELSE i.amount
+                END
+            ), 0)::DECIMAL(12, 2) as total_value,
+            COALESCE(SUM(i.amount), 0)::DECIMAL(12, 2) as total_invested,
+            COALESCE(SUM(d.total_distributions), 0)::DECIMAL(12, 2) as total_distributions,
+            COUNT(i.id) as investment_count
+        FROM investments i
+        LEFT JOIN (
+            SELECT investment_id, SUM(amount) as total_distributions
+            FROM distributions
+            GROUP BY investment_id
+        ) d ON i.id = d.investment_id
+        WHERE i.portfolio_id = p_portfolio_id;
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+
+  await client.query(`DROP FUNCTION IF EXISTS compute_user_snapshot(INTEGER)`)
+  await client.query(`
+    CREATE OR REPLACE FUNCTION compute_user_snapshot(p_user_id INTEGER)
+    RETURNS TABLE (
+        total_value DECIMAL(12, 2),
+        total_invested DECIMAL(12, 2),
+        total_distributions DECIMAL(12, 2),
+        portfolio_count BIGINT,
+        investment_count BIGINT
+    ) AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT
+            COALESCE(SUM(
+                CASE 
+                    WHEN i.stock_symbol IS NOT NULL AND i.current_stock_price IS NOT NULL 
+                    THEN i.stock_quantity * i.current_stock_price
+                    ELSE i.amount
+                END
+            ), 0)::DECIMAL(12, 2) as total_value,
+            COALESCE(SUM(i.amount), 0)::DECIMAL(12, 2) as total_invested,
+            COALESCE(SUM(d.total_distributions), 0)::DECIMAL(12, 2) as total_distributions,
+            COUNT(DISTINCT p.id) as portfolio_count,
+            COUNT(i.id) as investment_count
+        FROM portfolios p
+        LEFT JOIN investments i ON p.id = i.portfolio_id
+        LEFT JOIN (
+            SELECT investment_id, SUM(amount) as total_distributions
+            FROM distributions
+            GROUP BY investment_id
+        ) d ON i.id = d.investment_id
+        WHERE p.user_id = p_user_id;
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+
+  // Create snapshot save functions
+  await client.query(`DROP FUNCTION IF EXISTS save_portfolio_snapshot(INTEGER, DATE)`)
+  await client.query(`DROP FUNCTION IF EXISTS save_portfolio_snapshot(INTEGER)`)
+  await client.query(`
+    CREATE OR REPLACE FUNCTION save_portfolio_snapshot(
+        p_portfolio_id INTEGER,
+        p_snapshot_date DATE DEFAULT CURRENT_DATE
+    )
+    RETURNS void AS $$
+    DECLARE
+        v_snapshot RECORD;
+    BEGIN
+        SELECT * INTO v_snapshot FROM compute_portfolio_snapshot(p_portfolio_id);
+        
+        INSERT INTO portfolio_daily_snapshots (
+            portfolio_id,
+            snapshot_date,
+            total_value,
+            total_invested,
+            total_distributions,
+            investment_count
+        ) VALUES (
+            p_portfolio_id,
+            p_snapshot_date,
+            v_snapshot.total_value,
+            v_snapshot.total_invested,
+            v_snapshot.total_distributions,
+            v_snapshot.investment_count
+        )
+        ON CONFLICT (portfolio_id, snapshot_date) 
+        DO UPDATE SET
+            total_value = EXCLUDED.total_value,
+            total_invested = EXCLUDED.total_invested,
+            total_distributions = EXCLUDED.total_distributions,
+            investment_count = EXCLUDED.investment_count,
+            created_at = CURRENT_TIMESTAMP;
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+
+  await client.query(`DROP FUNCTION IF EXISTS save_user_snapshot(INTEGER, DATE)`)
+  await client.query(`DROP FUNCTION IF EXISTS save_user_snapshot(INTEGER)`)
+  await client.query(`
+    CREATE OR REPLACE FUNCTION save_user_snapshot(
+        p_user_id INTEGER,
+        p_snapshot_date DATE DEFAULT CURRENT_DATE
+    )
+    RETURNS void AS $$
+    DECLARE
+        v_snapshot RECORD;
+    BEGIN
+        SELECT * INTO v_snapshot FROM compute_user_snapshot(p_user_id);
+        
+        INSERT INTO user_daily_snapshots (
+            user_id,
+            snapshot_date,
+            total_value,
+            total_invested,
+            total_distributions,
+            portfolio_count,
+            investment_count
+        ) VALUES (
+            p_user_id,
+            p_snapshot_date,
+            v_snapshot.total_value,
+            v_snapshot.total_invested,
+            v_snapshot.total_distributions,
+            v_snapshot.portfolio_count,
+            v_snapshot.investment_count
+        )
+        ON CONFLICT (user_id, snapshot_date) 
+        DO UPDATE SET
+            total_value = EXCLUDED.total_value,
+            total_invested = EXCLUDED.total_invested,
+            total_distributions = EXCLUDED.total_distributions,
+            portfolio_count = EXCLUDED.portfolio_count,
+            investment_count = EXCLUDED.investment_count,
+            created_at = CURRENT_TIMESTAMP;
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+
+  // Create automatic snapshot triggers
+  await client.query(`
+    CREATE OR REPLACE FUNCTION trigger_save_portfolio_snapshot()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        PERFORM save_portfolio_snapshot(COALESCE(NEW.portfolio_id, OLD.portfolio_id));
+        RETURN COALESCE(NEW, OLD);
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+
+  await client.query(`DROP TRIGGER IF EXISTS investments_snapshot_trigger ON investments`)
+  await client.query(`
+    CREATE TRIGGER investments_snapshot_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON investments
+        FOR EACH ROW
+        EXECUTE FUNCTION trigger_save_portfolio_snapshot()
+  `)
+
+  await client.query(`
+    CREATE OR REPLACE FUNCTION trigger_save_portfolio_snapshot_from_distribution()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v_portfolio_id INTEGER;
+    BEGIN
+        SELECT portfolio_id INTO v_portfolio_id
+        FROM investments
+        WHERE id = COALESCE(NEW.investment_id, OLD.investment_id);
+        
+        IF v_portfolio_id IS NOT NULL THEN
+            PERFORM save_portfolio_snapshot(v_portfolio_id);
+        END IF;
+        
+        RETURN COALESCE(NEW, OLD);
+    END;
+    $$ LANGUAGE plpgsql;
+  `)
+
+  await client.query(`DROP TRIGGER IF EXISTS distributions_snapshot_trigger ON distributions`)
+  await client.query(`
+    CREATE TRIGGER distributions_snapshot_trigger
+        AFTER INSERT OR UPDATE OR DELETE ON distributions
+        FOR EACH ROW
+        EXECUTE FUNCTION trigger_save_portfolio_snapshot_from_distribution()
+  `)
+
+  await client.query(`
+    CREATE OR REPLACE FUNCTION trigger_save_user_snapshot()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v_user_id INTEGER;
+    BEGIN
+        -- Get user_id from portfolio (bypass RLS by using SECURITY DEFINER if needed)
+        SELECT user_id INTO v_user_id
+        FROM portfolios
+        WHERE id = NEW.portfolio_id;
+        
+        -- Save user snapshot
+        IF v_user_id IS NOT NULL THEN
+            PERFORM save_user_snapshot(v_user_id);
+        END IF;
+        
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql SECURITY DEFINER;
+  `)
+
+  await client.query(`DROP TRIGGER IF EXISTS portfolio_snapshots_user_trigger ON portfolio_daily_snapshots`)
+  await client.query(`
+    CREATE TRIGGER portfolio_snapshots_user_trigger
+        AFTER INSERT OR UPDATE ON portfolio_daily_snapshots
+        FOR EACH ROW
+        EXECUTE FUNCTION trigger_save_user_snapshot()
+  `)
+
+  // Create indexes on snapshot tables
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_date ON portfolio_daily_snapshots(snapshot_date)`,
+  )
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS idx_user_snapshots_date ON user_daily_snapshots(snapshot_date)`,
+  )
 }
 
 // Get all investments for a user
